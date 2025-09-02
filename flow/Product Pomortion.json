@@ -1,0 +1,848 @@
+{
+  "name": "Product Pomortion",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Product Add creation",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Description"
+            },
+            {
+              "fieldLabel": "Product Image",
+              "fieldType": "file"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -16,
+        -48
+      ],
+      "id": "b19a6346-92d9-4044-a3a5-8d4c45dba037",
+      "name": "On form submission",
+      "webhookId": "8fb3633b-6bdc-4d3a-aff9-9f6fa8ff7c1a"
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "=Product_Image",
+        "name": "={{ $json['Product Image'][0].filename }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1X0BiHGR22yP1bTi89nwkuMi8WcSdirWI",
+          "mode": "list",
+          "cachedResultName": "N8n Automation",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1X0BiHGR22yP1bTi89nwkuMi8WcSdirWI"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        192,
+        -48
+      ],
+      "id": "477b0a91-6c1c-42e9-b54c-981642612a38",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "umJjtPUK7bLbOjtM",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "chatgpt-4o-latest",
+          "mode": "list",
+          "cachedResultName": "CHATGPT-4O-LATEST"
+        },
+        "text": "Analyze the given image and determine if it primarily depicts a product or a character, or BOTH.\n\nIf the image is of a product, return the analysis in YAML format with the following fields:\n\nbrand_name: (Name of the brand shown in the image, if visible or inferable)\ncolor_scheme:\n\nhex: (Hex code of each prominent color used)\nname: (Descriptive name of the color)\nfont_style: (Describe the font family or style used: serif/sans-serif, bold/thin, etc.)\nvisual_description: (A full sentence or two summarizing what is seen in the image, ignoring the background)\n\nIf the image is of a character, return the analysis in YAML format with the following fields:\n\ncharacter_name: (Name of the character if visible or inferable)\ncolor_scheme:\n\nhex: (Hex code of each prominent color used on the character)\nname: (Descriptive name of the color)\noutfit_style: (Description of clothing style, accessories, or notable features)\nvisual_description: (A full sentence or two summarizing what the character looks like, ignoring the background)\n\nOnly return the YAML. Do not explain or add any other comments.\n\nif it is BOTH, return both descriptions as guided above in YAML format",
+        "imageUrls": "={{ $json.webContentLink }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        432,
+        -48
+      ],
+      "id": "438bdac1-6fe5-4788-be9d-d1925e19e5ae",
+      "name": "Analyze image",
+      "credentials": {
+        "openAiApi": {
+          "id": "2ydQBjL7AFR8ocSy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Header:\nYour task: Create an image prompt as guided by your system guidelines.\nMain instruction:\nMake sure that the reference image is depicted as ACCURATELY as possible in the resulting images, especially all text.\nUser's description section:\nThese are the user's description:\n{{ $('On form submission').item.json.Description }}\nReference image description section:\nDescription of the reference image:\n{{ $json.content }}\nThis appears to be a template or interface for an image generation system that uses both user descriptions and reference image descriptions to create accurate reproductions, with particular emphasis on preserving text elements from the reference image.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "ROLE: UGC Image Prompt Builder\nPurpose: Given an image URL (often a product or reference image), write a short, natural description that can drive an image/video generator.\nDefaults:\n\nIf instructions are vague, place the product with the character in an everyday setting that makes sense for the item.\nIf style or setting isn't specified, assume casual UGC realism.\n\nUGC Realism Principles:\n\nLook unstaged and lifelike.\nPhone-photo vibe: off-center framing, light motion blur, mixed indoor light, slight grain.\nEmbrace imperfections: wrinkles, stray hairs, skin texture, cluttered backgrounds.\nKeep any visible packaging text exactly as shown. Never invent claims, numbers, or badges.\n\nCamera Cues (use at least 2-3 each time):\n\n\"phone snapshot\", \"handheld framing\", \"off-center composition\", \"natural indoor light\", \"soft shadows\", \"slight motion blur\", \"auto exposure\", \"unpolished look\", \"mild grain\"\n\nSafety / Scope:\n\nDo not name copyrighted characters.\nYou do not write dialogue or scripts; you only output an image prompt.\n\nOutput Contract:\n\nReturn only one JSON object:\n\nimage_prompt: one string (≤120 words) in plain prose that covers subject, action, mood, setting, style/camera, color notes, and text-accuracy notes.\n\n\n\nDiversity Defaults:\n\nWhen people aren't specified, vary gender and ethnicity naturally.\nDefault age range: 21-38.\nPrefer real-world spaces (home, street, store, gym, office) unless told otherwise.\n\n--- Examples ---\nGood example 1:\n{ \"image_prompt\": \"a young adult casually holding a skincare tube near a bathroom mirror; action: dabs a small amount on the back of the hand; mood: easy morning; setting: small apartment bathroom with soft pot rack and toothbrush; style: phone snapshot, handheld framing, off-center composition, natural window light, slight motion blur, mild grain; colors: soft whites and mint label; text accuracy: keep every word on the tube exactly as visible, no added claims\" }\n\nGood example 2:\n{ \"image_prompt\": \"commuter wearing wireless earbuds while opening the charging case; action: steps out of subway exit; mood: in-the-moment; setting: busy sidewalk with passersby and glass reflections; style/camera: unpolished phone photo, auto exposure, mixed daylight and neon glow, gentle lens smudge; colors: charcoal and silver product stands out; text accuracy: preserve logo and model name precisely\"}\nBad example (avoid):\n\nFabricating certifications or numbers on packaging.\nStudio-perfect lighting or ad-speak like \"cinematic masterpiece\".\nReturning anything other than the two required keys.\n\nPre-send checklist:\n\nNatural, handheld tone? ✓\nAt least two camera cues included? ✓\nProduct text preserved exactly? ✓\nOnly image_prompt returned? ✓"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        864,
+        -48
+      ],
+      "id": "da434f28-38fd-46f0-ba7b-8239cf9107d5",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        752,
+        144
+      ],
+      "id": "b39c5fcc-816a-4684-ab70-7dc2df11363b",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "2ydQBjL7AFR8ocSy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"image_prompt\":\"string\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        992,
+        144
+      ],
+      "id": "69ee6415-dde1-4efa-9760-29c830c696ef",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://queue.fal.run/fal-ai/nano-banana/edit",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n\"prompt\": \"{{ $json.output.image_prompt.replace(/\\\"/g, '\\\\\\\"').replace(/\\n/g, '\\\\n') }}\",\n\"image_urls\": [\n\"{{ $('Upload file').item.json.webContentLink }}\"\n]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -16,
+        320
+      ],
+      "id": "b934cd60-e0bd-43ba-8ed6-ec60210bc225",
+      "name": "fal-image",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        256,
+        320
+      ],
+      "id": "2c76390c-310b-4cbe-8880-138a8d964a57",
+      "name": "wait to create image",
+      "webhookId": "d8292a6e-2590-4a81-ae12-f1f8b6894c2c"
+    },
+    {
+      "parameters": {
+        "url": "=https://queue.fal.run/fal-ai/nano-banana/requests/{{ $json.request_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        320
+      ],
+      "id": "a353d4e5-7b87-4a4a-9310-04392863f0ff",
+      "name": "get-image",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        576,
+        528
+      ],
+      "id": "30408424-3164-4ae9-b1ca-b0e6f427bc40",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "2ydQBjL7AFR8ocSy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"video_prompt\":\"string\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        896,
+        528
+      ],
+      "id": "4f7da14b-7211-43f5-9ead-a861bf3dde29",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Create a UGC-style video prompt from the reference image and the user description.\nUser description (may be empty):{{ $('On form submission').item.json.Description }}\nReference image analysis (use to stay faithful to what's visible):\n{{ $('Analyze image').item.json.content }}\nRules\n\nKeep the look casual and realistic; avoid studio language.\nDefault model: veo3 start unless stated otherwise.\nReturn only a single JSON object: video_prompt.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "ROLE: UGC Video Prompt Builder\nGoal\n\nFrom a reference image and short user notes, write a natural UGC-style video prompt suited for Veo3/Veo3_fast.\n\nPrinciples (UGC look)\n\nPhone-video vibe: handheld, slight motion, off-center framing, mixed indoor light, mild grain.\nReal life over polish: small flaws, lived-in spaces, ambient feel.\nKeep any visible packaging text accurate. Never invent claims, badges, or numbers.\nDon't name copyrighted characters.\nSound conversational, not ad-speak.\n\nOutput Contract\n\nReturn ONLY a single JSON object:\n\"video_prompt\": one plain sentence/short paragraph (≤ 130 words) describing subject, action, mood, setting, 2-3 camera cues, and color notes. Keep it faithful to the image and the user notes.\nNo code fences, no extra keys, no arrays, no headings.\nDo not fabricate product text; mention accuracy only if relevant.\nKeep it one scene implied by the single object.\n\nFraming guardrails:\n\nKeep the subject fully inside frame at all times (no forehead or chin cutoffs).\nMaintain centered composition; avoid extreme close-ups.\nIf the prompt implies movement, keep framing locked on the face and product.\n\n---\nGood Examples\n1)\n{\n\"video_prompt\": \"young adult casually unboxes a small gadget on a kitchen island; smiles, lifts it to camera, then points at the label visible on the box; setting: cozy apartment kitchen with mugs and dish rack; mood: friendly and unscripted; camera: handheld framing, off-center composition, auto exposure, mild grain; color notes: warm wood, soft whites, product label remains clear and accurate\",\n\"model\": \"veo3_fast\"\n}\n2)\n{\n\"video_prompt\": \"commuter steps out of a station, adjusts wireless earbuds, glances at phone, then pockets it and walks toward light; setting: busy sidewalk with glass reflections; mood: in-the-moment; camera: handheld framing, slight motion blur, natural outdoor light; color notes: charcoal earbuds and silver accents stand out; keep logo text exactly as seen on the case\",\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        320
+      ],
+      "id": "e38f292c-dc3c-4336-89e6-204f028c8f51",
+      "name": "video generate"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://queue.fal.run/fal-ai/veo3/image-to-video",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n\"prompt\": \"{{ $json.output.video_prompt.replace(/\\\"/g, '\\\\\\\"').replace(/\\n/g, '\\\\n') }}\",\n\"image_url\": [\n\"{{ $('get-image').item.json.images[0].url }}\"\n],\n\"duration\":8\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1072,
+        320
+      ],
+      "id": "f57ef5f9-1141-460d-b892-4cc1f54e358d",
+      "name": "image-to-video",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 4
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1248,
+        320
+      ],
+      "id": "2c845eec-4272-48c5-b592-b0e5c9a52ee3",
+      "name": "Wait",
+      "webhookId": "a126de11-08f9-4da1-89a9-1d24ff743b6a"
+    },
+    {
+      "parameters": {
+        "url": "=https://queue.fal.run/fal-ai/veo3/requests/e152b507-e3e4-496e-a200-6e36dfb48080",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1968,
+        304
+      ],
+      "id": "06db44e9-8b18-44da-b430-a6aa613430a2",
+      "name": "get-video",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "64a5384e-551f-4c01-97d4-b9ae0535a129",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "COMPLETED",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1664,
+        320
+      ],
+      "id": "ebbafdab-ded5-47a9-8e67-7628989ef954",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('image-to-video').item.json.status_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1456,
+        320
+      ],
+      "id": "ce2c02e0-5c5d-43d1-b883-e83776a84575",
+      "name": "check-status",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://v3.fal.media/files/penguin/2d4LS3osJj_-6gZcfAIOX_output.mp4",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2176,
+        304
+      ],
+      "id": "a2028c6d-0dd4-43c1-8cbd-229a014dda04",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "get-image": [
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3.fal.media/files/rabbit/YmHn37pL04B0yQ2uLJNqC.jpeg",
+              "content_type": "image/jpeg",
+              "file_name": "output.jpeg",
+              "file_size": null
+            }
+          ],
+          "description": ""
+        }
+      }
+    ],
+    "video generate": [
+      {
+        "json": {
+          "output": {
+            "video_prompt": "a 22-year-old woman casually seated in her new brown leather tufted armchair with slim metal legs, smiling as she talks about how comfy and stylish it is; setting: minimalistic living room with a neutral rug and soft warm light; mood: relaxed and genuine; camera: handheld with slight movement, off-center framing, indoor mixed light, mild grain; color notes: saddle and walnut brown tones of the chair contrasted softly against muted clay and neutral background"
+          }
+        }
+      }
+    ],
+    "image-to-video": [
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "536ea7a1-d947-4d38-8b2d-a8a2338d9908",
+          "response_url": "https://queue.fal.run/fal-ai/veo3/requests/536ea7a1-d947-4d38-8b2d-a8a2338d9908",
+          "status_url": "https://queue.fal.run/fal-ai/veo3/requests/536ea7a1-d947-4d38-8b2d-a8a2338d9908/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/veo3/requests/536ea7a1-d947-4d38-8b2d-a8a2338d9908/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 0
+        }
+      }
+    ],
+    "get-video": [
+      {
+        "json": {
+          "video": {
+            "url": "https://v3.fal.media/files/penguin/2d4LS3osJj_-6gZcfAIOX_output.mp4",
+            "content_type": "video/mp4",
+            "file_name": "output.mp4",
+            "file_size": 1486782
+          }
+        }
+      }
+    ],
+    "Analyze image": [
+      {
+        "json": {
+          "content": "```yaml\nbrand_name: null\ncolor_scheme:\n  - hex: \"#A0522D\"\n    name: Saddle Brown\n  - hex: \"#5E4731\"\n    name: Walnut Brown\n  - hex: \"#C89F94\"\n    name: Muted Clay\nfont_style: null\nvisual_description: A modern, cushioned, high-back armchair upholstered in brown leather with a tufted design and slim, angled metal legs, placed on a neutral-toned rug in a minimalistic room.\n```"
+        }
+      }
+    ],
+    "Upload file": [
+      {
+        "json": {
+          "kind": "drive#file",
+          "id": "1nsKwUZdGy0UTL3ThFrmdqewFgnfTvr2E",
+          "name": "leather_chair.png",
+          "mimeType": "image/png",
+          "starred": false,
+          "trashed": false,
+          "explicitlyTrashed": false,
+          "parents": [
+            "1X0BiHGR22yP1bTi89nwkuMi8WcSdirWI"
+          ],
+          "spaces": [
+            "drive"
+          ],
+          "version": "2",
+          "webContentLink": "https://drive.google.com/uc?id=1nsKwUZdGy0UTL3ThFrmdqewFgnfTvr2E&export=download",
+          "webViewLink": "https://drive.google.com/file/d/1nsKwUZdGy0UTL3ThFrmdqewFgnfTvr2E/view?usp=drivesdk",
+          "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/image/png",
+          "hasThumbnail": true,
+          "thumbnailLink": "https://lh3.googleusercontent.com/drive-storage/AJQWtBMrx2VLFUCFuzoK549N5lDoSCVFEd5cNE4mnpzyJpiLzNChBkQcw-6Ob1NSXw2ZldBklWBGe5FdHptOxbCZ5pS6NjiBu1zG8cABdvSPR2DM6Ag=s220",
+          "thumbnailVersion": "2",
+          "viewedByMe": false,
+          "createdTime": "2025-08-31T08:23:11.681Z",
+          "modifiedTime": "2025-08-31T08:23:14.055Z",
+          "modifiedByMeTime": "2025-08-31T08:23:14.055Z",
+          "modifiedByMe": true,
+          "owners": [
+            {
+              "kind": "drive#user",
+              "displayName": "Aruna Kumara",
+              "photoLink": "https://lh3.googleusercontent.com/a/ACg8ocKuoarCk802b1_hUStVIpjGHWCAmPxPsdRaQFQoE7wvZuSJ0g=s64",
+              "me": true,
+              "permissionId": "07895928135417956471",
+              "emailAddress": "aws.arunak451@gmail.com"
+            }
+          ],
+          "lastModifyingUser": {
+            "kind": "drive#user",
+            "displayName": "Aruna Kumara",
+            "photoLink": "https://lh3.googleusercontent.com/a/ACg8ocKuoarCk802b1_hUStVIpjGHWCAmPxPsdRaQFQoE7wvZuSJ0g=s64",
+            "me": true,
+            "permissionId": "07895928135417956471",
+            "emailAddress": "aws.arunak451@gmail.com"
+          },
+          "shared": false,
+          "ownedByMe": true,
+          "downloadRestrictions": {
+            "itemDownloadRestriction": {
+              "restrictedForReaders": false,
+              "restrictedForWriters": false
+            },
+            "effectiveDownloadRestrictionWithContext": {
+              "restrictedForReaders": false,
+              "restrictedForWriters": false
+            }
+          },
+          "capabilities": {
+            "canAcceptOwnership": false,
+            "canAddChildren": false,
+            "canAddMyDriveParent": false,
+            "canChangeCopyRequiresWriterPermission": true,
+            "canChangeItemDownloadRestriction": true,
+            "canChangeSecurityUpdateEnabled": false,
+            "canChangeViewersCanCopyContent": true,
+            "canComment": true,
+            "canCopy": true,
+            "canDelete": true,
+            "canDisableInheritedPermissions": false,
+            "canDownload": true,
+            "canEdit": true,
+            "canEnableInheritedPermissions": true,
+            "canListChildren": false,
+            "canModifyContent": true,
+            "canModifyContentRestriction": true,
+            "canModifyEditorContentRestriction": true,
+            "canModifyOwnerContentRestriction": true,
+            "canModifyLabels": false,
+            "canMoveChildrenWithinDrive": false,
+            "canMoveItemIntoTeamDrive": true,
+            "canMoveItemOutOfDrive": true,
+            "canMoveItemWithinDrive": true,
+            "canReadLabels": false,
+            "canReadRevisions": true,
+            "canRemoveChildren": false,
+            "canRemoveContentRestriction": false,
+            "canRemoveMyDriveParent": true,
+            "canRename": true,
+            "canShare": true,
+            "canTrash": true,
+            "canUntrash": true
+          },
+          "viewersCanCopyContent": true,
+          "copyRequiresWriterPermission": false,
+          "writersCanShare": true,
+          "permissions": [
+            {
+              "kind": "drive#permission",
+              "id": "07895928135417956471",
+              "type": "user",
+              "emailAddress": "aws.arunak451@gmail.com",
+              "role": "owner",
+              "displayName": "aws.arunak451",
+              "deleted": false,
+              "pendingOwner": false
+            }
+          ],
+          "permissionIds": [
+            "07895928135417956471"
+          ],
+          "originalFilename": "Untitled",
+          "fullFileExtension": "png",
+          "fileExtension": "png",
+          "md5Checksum": "5a7e500de5d89cdddd4ba9ef106c799b",
+          "sha1Checksum": "f237edea00fc7c357dd16e0db5eebbac92bed596",
+          "sha256Checksum": "421cc18c91ca8e61493512b147cd866a6cb3bbf29bf8a2e718edc84e6ffe63a6",
+          "size": "929140",
+          "quotaBytesUsed": "929140",
+          "headRevisionId": "0B9FqTzg3rmctdHpidlZTVjJJUW44VU9QbXJDVWx6T29ITVNBPQ",
+          "imageMediaMetadata": {
+            "width": 816,
+            "height": 826,
+            "rotation": 0
+          },
+          "isAppAuthorized": true,
+          "linkShareMetadata": {
+            "securityUpdateEligible": false,
+            "securityUpdateEnabled": true
+          },
+          "inheritedPermissionsDisabled": false
+        }
+      }
+    ],
+    "AI Agent": [
+      {
+        "json": {
+          "output": {
+            "image_prompt": "a 22-year-old pretty girl sitting comfortably in a modern brown leather high-back armchair with tufted cushions and slim angled metal legs; action: talking excitedly about the chair; mood: casual and warm; setting: minimalistic room with a neutral-toned rug beneath the chair; style: phone snapshot, handheld framing, off-center composition, natural indoor light, soft shadows, slight motion blur, mild grain; colors: rich saddle brown and walnut brown leather with muted clay tones in the rug; text accuracy: no visible text on product, focus on accurate upholstery and chair details"
+          }
+        }
+      }
+    ],
+    "fal-image": [
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "b9129298-da82-4c17-be13-7de4bf4189d2",
+          "response_url": "https://queue.fal.run/fal-ai/nano-banana/requests/b9129298-da82-4c17-be13-7de4bf4189d2",
+          "status_url": "https://queue.fal.run/fal-ai/nano-banana/requests/b9129298-da82-4c17-be13-7de4bf4189d2/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/nano-banana/requests/b9129298-da82-4c17-be13-7de4bf4189d2/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 1
+        }
+      }
+    ],
+    "check-status": [
+      {
+        "json": {
+          "status": "COMPLETED",
+          "request_id": "536ea7a1-d947-4d38-8b2d-a8a2338d9908",
+          "response_url": "https://queue.fal.run/fal-ai/veo3/requests/536ea7a1-d947-4d38-8b2d-a8a2338d9908",
+          "status_url": "https://queue.fal.run/fal-ai/veo3/requests/536ea7a1-d947-4d38-8b2d-a8a2338d9908/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/veo3/requests/536ea7a1-d947-4d38-8b2d-a8a2338d9908/cancel",
+          "logs": null,
+          "metrics": {
+            "inference_time": 0.027912139892578125
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Analyze image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze image": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "fal-image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "fal-image": {
+      "main": [
+        [
+          {
+            "node": "wait to create image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "wait to create image": {
+      "main": [
+        [
+          {
+            "node": "get-image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-image": {
+      "main": [
+        [
+          {
+            "node": "video generate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "video generate",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "video generate",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "video generate": {
+      "main": [
+        [
+          {
+            "node": "image-to-video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "image-to-video": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "check-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "get-video",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-status": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-video": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "84767611-b27f-4d49-87fb-fbe24a205ae7",
+  "meta": {
+    "instanceId": "06e98ce9db23ff760b007eaefb3738ba91dce3528c57a63321e6eac113e705a1"
+  },
+  "id": "uFGx9eMACo1FJtzD",
+  "tags": []
+}
