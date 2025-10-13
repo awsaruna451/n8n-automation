@@ -1,0 +1,1077 @@
+{
+  "name": "character_consitent",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Kids Story Book",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "age_range",
+              "placeholder": "\"4-7\""
+            },
+            {
+              "fieldLabel": "character_name",
+              "placeholder": "Bella the brave bunny"
+            },
+            {
+              "fieldLabel": "theme",
+              "placeholder": "courage and confidence"
+            },
+            {
+              "fieldLabel": "moral_lesson",
+              "placeholder": "You are braver than you believe"
+            },
+            {
+              "fieldLabel": "art_style",
+              "placeholder": "watercolor painting"
+            },
+            {
+              "fieldLabel": "character_description"
+            },
+            {
+              "fieldLabel": "character_expression"
+            },
+            {
+              "fieldLabel": "character_key_features"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -1104,
+        288
+      ],
+      "id": "c1fb7716-8283-4b0e-b236-f7b0987ecf4a",
+      "name": "Story Parameters",
+      "webhookId": "9a42daac-2dca-48ea-b037-b5505b86de1d"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Create a children's picture book story with these specifications:\n\nSTORY SPECIFICATIONS:\n- Target age group: {{ $json.age_range }}\n- Main character: {{ $json.character_name }}\n- Theme: {{ $json.theme }}\n- Moral lesson: {{ $json.moral_lesson }}\n- Total length: 24-26 pages\n\nSTORY REQUIREMENTS:\n- Use age-appropriate vocabulary and simple sentence structures\n- Include 2-3 characters beyond the main character\n- Create a clear three-act structure: Problem (pages 1-8) → Journey/Struggle (pages 9-18) → Resolution/Learning (pages 19-26)\n- Balance dialogue, action, and descriptive passages\n- Include sensory details and emotional moments that resonate with children\n- Show the moral lesson through the character's actions and experiences, never through narration or preaching\n- Each page should be visually distinct and suggest an illustration opportunity\n- Use repetition and rhythm to aid memorability and engagement\n\nFORMAT:\n1. Begin with a complete narrative (3-4 paragraphs)\n2. Break into page-by-page segments marked as [PAGE 1], [PAGE 2], etc.\n3. Each page segment should be 1-3 sentences, suitable for one illustration\n4. End with a brief reflection on how the story demonstrates the moral lesson"
+            },
+            {
+              "content": "=You are an expert children's picture book story writer specializing in creating engaging, age-appropriate narratives for young readers.\n\nCORE PRINCIPLES:\n- Create emotionally resonant stories that children can relate to and learn from\n- Show moral lessons through character actions and consequences, never through explicit teaching or preaching\n- Use simple, rhythmic language with varied sentence structures to maintain engagement\n- Build genuine emotional stakes—children care about stories where characters face real challenges\n- Balance wonder and relatability with authentic problem-solving\n- Ensure each page contains one clear visual/narrative moment\n\nSTORY STRUCTURE BEST PRACTICES:\n- Open with a relatable character and their world (establish normalcy)\n- Introduce a problem that feels significant to the character\n- Show the character attempting solutions (some may fail)\n- Build toward a turning point where the character learns or grows\n- Conclude with both external resolution and internal transformation\n- End with a sense of peace, hope, or new understanding\n\nLANGUAGE & TONE GUIDELINES:\n- Use active voice and concrete verbs\n- Include sensory details (what the character sees, hears, feels)\n- Vary sentence length to create rhythm\n- Use repetition sparingly but effectively for emphasis\n- Avoid clinical or didactic language\n- Make dialogue natural and revealing of character\n- Include moments of humor, wonder, and warmth\n\nCHARACTER DEVELOPMENT:\n- Ensure the main character has a clear goal or desire\n- Show vulnerability and authentic emotion\n- Demonstrate growth through the story\n- Make supporting characters distinct with their own personalities\n- Include diverse perspectives if multiple characters are present\n\nCOMMON PITFALLS TO AVOID:\n- Don't explain the moral lesson at the end\n- Avoid overly complex plots with too many characters or subplots\n- Don't use language beyond the target age group's typical vocabulary\n- Avoid rushed endings—allow emotional resolution space\n- Don't make the protagonist perfect; flaws drive the story\n- Avoid scary, violent, or psychologically disturbing content\n\nOUTPUT FORMAT:\n1. Complete narrative (full story in prose form)\n2. Page-by-page breakdown with [PAGE X] headers\n3. Each page is 1-3 sentences, formatted for picture book layout\n4. Maintain consistent voice and pacing throughout",
+              "role": "system"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -848,
+        208
+      ],
+      "id": "d104d606-cced-4472-9b03-564b8dcd15e4",
+      "name": "Generate Story",
+      "credentials": {
+        "openAiApi": {
+          "id": "2ydQBjL7AFR8ocSy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// FULLY DYNAMIC: Structure Story + Ultra-Realistic Scene Analysis\ntry {\n  const items = $input.all();\n  const storyText = items[0].json.message.content;\n  \n  // Get form data - try multiple sources to ensure we get the data\n  let formData = null;\n  \n  // Try to get from Story Parameters node\n  try {\n    formData = $('Story Parameters').first().json;\n  } catch (e) {\n    // Fallback: try to find form data in input items\n    const inputItem = items.find(item => item.json && (item.json.character_name || item.json.theme));\n    if (inputItem) {\n      formData = inputItem.json;\n    }\n  }\n  \n  // Validate we have essential form data\n  if (!formData || !formData.character_name) {\n    throw new Error('Form data not found. Required: character_name, theme, age_range, art_style, moral_lesson');\n  }\n  \n  // Ensure all required fields have defaults\n  const safeFormData = {\n    character_name: formData.character_name || 'Main Character',\n    theme: formData.theme || 'adventure',\n    age_range: formData.age_range || '3-8',\n    art_style: formData.art_style || 'watercolor',\n    moral_lesson: formData.moral_lesson || 'Be kind and brave'\n  };\n\n  // Extract pages from story - capture only content without PAGE markers\n  const pageRegex = /\\[PAGE \\d+\\]([\\s\\S]*?)(?=\\[PAGE \\d+\\]|$)/g;\n  const pageMatches = [];\n  let match;\n  while ((match = pageRegex.exec(storyText)) !== null) {\n    pageMatches.push(match[1].trim()); // Only capture group 1 (content without markers)\n  }\n  if (pageMatches.length === 0) throw new Error('Story format invalid - no [PAGE N] markers found');\n\n  // ========== ENHANCED DYNAMIC WORD EXTRACTION ==========\n  \n  function analyzeSceneDetails(text, isTitle = false) {\n    const visualCues = {\n      colors: extractDynamicWords(text, 'colors'),\n      textures: extractDynamicWords(text, 'textures'),\n      lighting: extractDynamicWords(text, 'lighting'),\n      weather: extractDynamicWords(text, 'weather'),\n      emotions: extractDynamicWords(text, 'emotions'),\n      actions: extractDynamicWords(text, 'actions'),\n      objects: extractDynamicWords(text, 'objects'),\n      positions: extractDynamicWords(text, 'positions'),\n      settings: extractDynamicWords(text, 'settings'),\n      characters: extractDynamicWords(text, 'characters')\n    };\n    \n    return visualCues;\n  }\n  \n  function extractDynamicWords(text, category) {\n    const wordCategories = {\n      colors: ['green', 'bright', 'vibrant', 'golden', 'silver', 'blue', 'red', 'yellow', 'purple', 'orange', 'pink', 'brown', 'black', 'white', 'gray', 'colorful', 'crimson', 'emerald', 'azure', 'amber', 'coral', 'lavender', 'turquoise', 'magenta'],\n      textures: ['soft', 'rough', 'smooth', 'fuzzy', 'shiny', 'fluffy', 'sticky', 'wet', 'dry', 'bumpy', 'silky', 'velvety', 'coarse', 'sleek', 'grainy', 'glossy', 'matte', 'textured', 'polished', 'weathered'],\n      lighting: ['sunny', 'bright', 'dark', 'shadow', 'moonlight', 'starlight', 'dawn', 'dusk', 'glowing', 'sparkling', 'shimmering', 'radiant', 'dim', 'illuminated', 'twilight', 'candlelit', 'filtered', 'dappled', 'harsh', 'gentle'],\n      weather: ['rain', 'snow', 'wind', 'storm', 'clouds', 'sunshine', 'foggy', 'misty', 'clear', 'humid', 'breezy', 'drizzle', 'thunder', 'lightning', 'overcast', 'crisp', 'balmy', 'chilly', 'warm', 'cool'],\n      emotions: ['happy', 'sad', 'excited', 'nervous', 'brave', 'scared', 'confident', 'worried', 'joyful', 'determined', 'curious', 'surprised', 'proud', 'shy', 'hopeful', 'anxious', 'delighted', 'cautious', 'amazed', 'peaceful', 'content', 'thrilled'],\n      actions: ['climbed', 'jumped', 'ran', 'walked', 'looked', 'smiled', 'laughed', 'cried', 'reached', 'grabbed', 'held', 'touched', 'listened', 'whispered', 'shouted', 'hid', 'approached', 'stumbled', 'battling', 'conquered', 'roar', 'echoed', 'dancing', 'singing', 'playing', 'exploring', 'discovering', 'helping', 'sharing', 'caring'],\n      objects: ['tree', 'fruit', 'leaves', 'branches', 'jungle', 'animals', 'ground', 'sky', 'flowers', 'grass', 'rocks', 'water', 'path', 'home', 'food', 'mountain', 'river', 'forest', 'ocean', 'castle', 'cottage', 'garden', 'meadow', 'bridge', 'tower', 'cave', 'valley'],\n      positions: ['behind', 'in front', 'above', 'below', 'beside', 'near', 'far', 'up', 'down', 'left', 'right', 'center', 'corner', 'edge', 'high', 'low', 'around', 'between', 'across', 'through', 'under', 'over', 'inside', 'outside'],\n      settings: ['forest', 'beach', 'mountain', 'city', 'village', 'farm', 'castle', 'school', 'home', 'garden', 'park', 'library', 'kitchen', 'bedroom', 'playground', 'market', 'field', 'desert', 'island', 'space', 'underwater', 'magical realm'],\n      characters: ['friend', 'family', 'parent', 'child', 'sibling', 'grandparent', 'teacher', 'neighbor', 'companion', 'helper', 'guide', 'stranger', 'visitor', 'creature', 'being', 'spirit', 'fairy', 'dragon', 'unicorn', 'robot', 'alien']\n    };\n    \n    const words = wordCategories[category] || [];\n    return words.filter(word => text.toLowerCase().includes(word));\n  }\n  \n  function generateDynamicTitle(storyText, characterName, theme, moralLesson) {\n    // Simply return the character name as the title\n    return characterName;\n  }\n  \n  function generateSceneDescription(text, visualCues, characterName, theme, isTitle = false) {\n    if (isTitle) {\n      return `Professional children's book cover featuring ${characterName} in their authentic story world. The scene represents the ${theme} theme with rich environmental details that capture the essence of this unique narrative. The main character is positioned prominently with natural, expressive body language that reflects the story's emotional tone.`;\n    }\n    \n    let description = '';\n    \n    // Character positioning and actions\n    if (visualCues.actions.length > 0) {\n      description += `${characterName} is ${visualCues.actions.join(' and ')}, `;\n    } else {\n      description += `${characterName} is positioned naturally in the scene, `;\n    }\n    \n    // Environmental and setting details\n    const environmentElements = [...visualCues.objects, ...visualCues.settings].filter(Boolean);\n    if (environmentElements.length > 0) {\n      description += `situated in a setting with ${environmentElements.join(', ')}. `;\n    }\n    \n    // Character interactions\n    if (visualCues.characters.length > 0) {\n      description += `Interacting with ${visualCues.characters.join(' and ')}, `;\n    }\n    \n    // Lighting and atmosphere\n    if (visualCues.lighting.length > 0) {\n      description += `The lighting is ${visualCues.lighting.join(' and ')}, creating atmospheric depth. `;\n    } else {\n      description += `Natural lighting creates an inviting atmosphere. `;\n    }\n    \n    // Weather and environmental conditions\n    if (visualCues.weather.length > 0) {\n      description += `Weather conditions include ${visualCues.weather.join(' and ')}, `;\n    }\n    \n    // Emotional context\n    if (visualCues.emotions.length > 0) {\n      description += `with ${characterName} expressing ${visualCues.emotions.join(' and ')} emotions through authentic facial expressions and body language. `;\n    }\n    \n    // Specific scene context\n    description += `The scene captures the narrative moment: \"${text.substring(0, 120)}${text.length > 120 ? '...' : ''}\"`;\n    \n    return description;\n  }\n  \n  function generateIllustrationPrompt(text, visualCues, characterName, theme, artStyle, ageRange, isTitle = false) {\n    let prompt = '';\n    \n    if (isTitle) {\n      prompt = `Professional children's book cover illustration in ${artStyle} style, featuring ${characterName} as the main character representing the ${theme} theme. `;\n      \n      // Dynamic cover environment based on detected story elements\n      const environmentElements = [...visualCues.objects, ...visualCues.settings].filter(Boolean);\n      if (environmentElements.length > 0) {\n        prompt += `Set in ${environmentElements.join(', ')} environment with authentic atmospheric details. `;\n      } else {\n        // Fallback to theme-based environment\n        prompt += `Authentic story world environment that perfectly represents the ${theme} theme. `;\n      }\n    } else {\n      prompt = `Ultra-detailed hyperrealistic children's book illustration in ${artStyle} style, showing ${characterName} `;\n      \n      // Character actions and positioning\n      if (visualCues.actions.length > 0) {\n        prompt += `${visualCues.actions.join(' and ')}, `;\n      }\n      \n      // Environmental specifics\n      const allEnvironmentElements = [...visualCues.objects, ...visualCues.settings].filter(Boolean);\n      if (allEnvironmentElements.length > 0) {\n        prompt += `in setting with ${allEnvironmentElements.join(', ')}, `;\n      }\n    }\n    \n    // Lighting specifications\n    if (visualCues.lighting.length > 0) {\n      prompt += `${visualCues.lighting.join(' and ')} lighting with realistic shadow patterns, `;\n    } else {\n      prompt += `natural warm lighting with soft shadows, `;\n    }\n    \n    // Color palette\n    if (visualCues.colors.length > 0) {\n      prompt += `color palette featuring ${visualCues.colors.join(', ')} tones, `;\n    }\n    \n    // Texture details\n    if (visualCues.textures.length > 0) {\n      prompt += `textures including ${visualCues.textures.join(', ')} surfaces, `;\n    }\n    \n    // Emotional authenticity\n    if (visualCues.emotions.length > 0) {\n      prompt += `capturing authentic ${visualCues.emotions.join(' and ')} emotions through micro-expressions, `;\n    }\n    \n    // Technical specifications\n    prompt += `realistic proportions appropriate for ${ageRange} year olds, detailed texture rendering, cinematic composition, professional children's book illustration quality, ${artStyle} medium effects, age-appropriate content with sophisticated visual execution`;\n    \n    return prompt;\n  }\n  \n  // ========== PROCESS PAGES WITH DYNAMIC ANALYSIS ==========\n  \n  const pages = [];\n\n  // Dynamic title page generation\n  const dynamicTitle = generateDynamicTitle(storyText, safeFormData.character_name, safeFormData.theme, safeFormData.moral_lesson);\n  const titleVisualCues = analyzeSceneDetails(`${dynamicTitle} featuring ${safeFormData.character_name} in ${safeFormData.theme}`, true);\n  \n  pages.push({\n    page_number: 1,\n    text: dynamicTitle,\n    is_title_page: true,\n    character_name: safeFormData.character_name,\n    theme: safeFormData.theme,\n    age_range: safeFormData.age_range,\n    art_style: safeFormData.art_style,\n    scene_description: generateSceneDescription(dynamicTitle, titleVisualCues, safeFormData.character_name, safeFormData.theme, true)\n  });\n\n  // Story pages with enhanced dynamic analysis - PROCESS ALL PAGES\n  for (let i = 0; i < pageMatches.length; i++) {\n    const pageContent = pageMatches[i]; // Already cleaned content\n    if (pageContent) {\n      const visualCues = analyzeSceneDetails(pageContent);\n      \n      pages.push({\n        page_number: i + 2,\n        text: pageContent,\n        character_name: safeFormData.character_name,\n        theme: safeFormData.theme,\n        age_range: safeFormData.age_range,\n        art_style: safeFormData.art_style,\n        scene_description: generateSceneDescription(pageContent, visualCues, safeFormData.character_name, safeFormData.theme)\n      });\n    }\n  }\n\n  // Dynamic ending page - ALWAYS ADD AT THE END\n  const endingText = `The End\\n\\n${safeFormData.moral_lesson}`;\n  const endingVisualCues = analyzeSceneDetails(endingText);\n  \n  pages.push({\n    page_number: pages.length + 1,\n    text: endingText,\n    character_name: safeFormData.character_name,\n    theme: safeFormData.theme,\n    age_range: safeFormData.age_range,\n    art_style: safeFormData.art_style,\n    moral_lesson: safeFormData.moral_lesson,\n    scene_description: generateSceneDescription(endingText, endingVisualCues, safeFormData.character_name, safeFormData.theme)\n  });\n\n  // Quality validation - adjusted for dynamic length\n  const qualityScore = pages.length >= 3 ? 85 : 70;\n  if (qualityScore < 70) {\n    return [{\n      json: {\n        success: false,\n        message: \"Story needs revision - insufficient pages\",\n        pages_count: pages.length\n      }\n    }];\n  }\n\n  return [{\n    json: {\n      success: true,\n      story_data: {\n        pages: pages,\n        total_pages: pages.length,\n        character_name: safeFormData.character_name,\n        theme: safeFormData.theme,\n        art_style: safeFormData.art_style,\n        age_range: safeFormData.age_range,\n        quality_score: qualityScore,\n        dynamic_title: dynamicTitle\n      }\n    }\n  }];\n} catch (error) {\n  return [{\n    json: {\n      success: false,\n      error: error.message,\n      message: \"Failed to process story with dynamic scene analysis\"\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        160
+      ],
+      "id": "92b65345-44fa-46ec-b7fd-5d6419bc1828",
+      "name": "Structure Story into Pages"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "story_data.pages",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        48
+      ],
+      "id": "9972b3e5-81a0-4c9a-87e9-ee63b13e6ece",
+      "name": "Split Pages"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Map through each item and create a valid JSON element for image_prompt\nconst prompts = items.map(item => {\n  const prompt = item.json.output.image_prompt;\n\n  // Escape quotes and line breaks for valid JSON\n  const safePrompt = prompt\n    .replace(/\\\\/g, '\\\\\\\\')   // Escape backslashes\n    .replace(/\"/g, '\\\\\"')     // Escape double quotes\n    .replace(/\\n/g, '\\\\n');   // Escape newlines\n\n  return {\n    json: { image_prompt: safePrompt }\n  };\n});\n\nreturn prompts;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        288
+      ],
+      "id": "fe3a2550-ce9b-40eb-8c34-58965cef644b",
+      "name": "Parse AI Scene Response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://queue.fal.run/fal-ai/flux-1/schnell",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=\n    {\n\n      \"prompt\":  \"{{ $json.image_prompt }}\"    \n\n  \n} ",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        656,
+        288
+      ],
+      "id": "807148cc-933f-423c-a23f-5b1e969a6633",
+      "name": "Generate Images",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.response_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        992,
+        288
+      ],
+      "id": "fc102959-be94-4dcc-8481-10107b92f396",
+      "name": "Fetch Generated Images",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/pdf/generate-kdp-storybook",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"pages\": {{ JSON.stringify($json.pages) }},\n  \"filename\": {{ JSON.stringify($json.filename) }},\n  \"text_overlay_opacity\": {{ $json.text_overlay_opacity }},\n\n\"page_width\": \"2550\",  \n  \"page_height\": \"2550\",\n\"title_color\": \"#FFF8DC\",\n \"title_font_size\": \"400\",\n \"text_font_size\": \"250\", \n \"text_color\": \"#2C2C2C\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -320,
+        656
+      ],
+      "id": "09614c9e-723c-45a8-8f0e-e0d6ccc602a5",
+      "name": "Generate PDF"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -928,
+        752
+      ],
+      "id": "03f41d48-550b-418b-87a0-5c3f56a1f24d",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "IMAGE_URL",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -608,
+        816
+      ],
+      "id": "97d1b755-4768-4f81-8a71-457deef4bc43",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.IMAGE_URL }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -304,
+        816
+      ],
+      "id": "bbc6389d-7f77-46b0-9387-b75232d0db4c",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Photorealistic illustration for a children's picture book (ages {{ $json.age_range }}). \n\nThe main character, {{ $json.character_name }}, must appear **identical in every scene**, maintaining absolute consistency in size, proportions, colors, signature features, and facial expression style across all illustrations.  \n\n---\n\n**Character Reference (always constant across scenes):**  \n{{ $json.character_name }} is {{ $('Story Parameters').item.json.character_description }}.  \nTheir typical expression is {{ $('Story Parameters').item.json.character_expression }}.  \nKey features such as {{ $('Story Parameters').item.json.character_key_features }} **must remain identical across all scenes** to preserve visual continuity.  \n\n---\n\n**Scene Description:**  \nIn this scene, {{ $json.character_name }} is {{ $json.scene_description }}, conveying the emotional tone: '{{ $json.text }}'.  \n\nThe environment, secondary animals, and objects may vary depending on the scene, but **the main character’s visual appearance, proportions, and key features must never change**.  \n\n---\n\n**Art Direction:**  \nUse {{ $json.art_style }} in a **photorealistic, painterly style** (watercolor, oil, or other as specified) with **soft textures, natural lighting, and gentle depth of field**.  \nLighting, perspective, and composition should support the emotional tone while keeping {{ $json.character_name }} as the central focus.  \nEnsure age-appropriate clarity, emotional authenticity, and visual storytelling that engages children.  \n\n---\n\n{{ $json.is_title_page ? 'COVER PAGE: Design should prominently feature ' + $json.character_name + ' embodying the story’s theme — ' + $json.theme + ' — within their consistent world setting.' : '' }}\n",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an elite children's book illustration prompt engineer, specializing in photorealistic, cinema-quality AI image generation. Your expertise is transforming story scenes into hyper-specific, flowing visual prompts that capture authentic narrative moments while maintaining a consistent main character design across all scenes.\n\nCORE COMPETENCIES\n1. Narrative Scene Intelligence\n\nDeeply analyze story context, emotional beats, and plot progression.\n\nCapture temporal moments — before, during, and after the action.\n\nDepict character dynamics and spatial relationships accurately.\n\nVisualize subtext through environmental storytelling, props, and subtle cues.\n\n2. Adaptive Technical Specification\n\nTailor camera angles, framing, and perspective to the scene’s narrative needs.\n\nUse contextual lighting that enhances mood and emotion naturally.\n\nDynamically compose scenes based on action intensity vs. quiet introspection.\n\nSeamlessly integrate art style with photorealism, enhancing authenticity.\n\n3. Character Authenticity Mastery\n\nMaintain consistent main character identity across all pages: proportions, color palette, signature features, and accessories.\n\nEnsure age-appropriate body proportions, movement, and micro-expressions.\n\nReflect emotional state through pose, gaze, and subtle facial cues.\n\nKeep clothing, accessories, and design logic consistent but flexible to scene context.\n\n4. Environmental World-Building\n\nConvey atmospheric conditions that reinforce story tone.\n\nMaintain realistic spatial relationships, scale, and perspective.\n\nInclude culturally, geographically, and seasonally accurate details when relevant.\n\nShow interactive connections between character and environment, enhancing narrative clarity.\n\nPROMPT CONSTRUCTION PHILOSOPHY\n\nInstead of rigid templates, evaluate what this specific scene demands:\n\nQuiet character moment → Close framing, shallow depth, intimate lighting.\n\nDynamic action → Motion emphasis, directional lighting, wide perspective.\n\nEnvironmental storytelling → Layered depth, symbolic props, atmospheric focus.\n\nEmotional revelation → Facial micro-details, body language precision, symbolic illumination.\n\nAlways ensure the main character’s design is preserved — do not allow the AI to invent new styles or features for the protagonist.\n\nOUTPUT STRUCTURE\n\nGenerate a flowing, natural illustration prompt (not checklist-style), including:\n\nStyle Foundation — Specify the art medium, quality, and photorealistic markers.\n\nScene Core — Capture the essential narrative moment with cinematic clarity.\n\nCharacter Detail — Describe appearance, pose, expression, emotional state, and signature traits without altering the main character design.\n\nEnvironmental Context — Include setting details that support and enhance storytelling.\n\nTechnical Excellence — Seamlessly integrate lighting, composition, depth, and rendering specifications.\n\nEmotional Resonance — Use visual elements to evoke authentic feeling aligned with the story beat.\n\nCRITICAL RULES\n\nNever use placeholder text or generic descriptors.\n\nAdapt all technical specifications to the scene’s narrative and emotional needs.\n\nIntegrate art style organically, not as an afterthought.\n\nPrioritize storytelling clarity over flashy visual effects.\n\nEnsure every visual element serves the narrative moment.\n\nAlways maintain the main character’s design consistency, only adapting pose or expression to scene context."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "e1e44ed8-a41e-43ea-9dc1-c18b30617d37",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        208
+      ],
+      "id": "60e6bde9-fdc9-40bb-9a96-edc6a26e0a0a",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "2ydQBjL7AFR8ocSy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"image_prompt\":\"string\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        192,
+        208
+      ],
+      "id": "0014d743-76ff-449a-9c34-58fcdea2c28a",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8000/api/v1{{ $json.download_url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        16,
+        656
+      ],
+      "id": "2c1a8429-889c-48ce-ab89-6e6a2d7d74fc",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const imagesArr = $input.all();  \n\nconst story = $('Structure Story into Pages').first().json.story_data.pages;\n\n// Map through images to create pages array\nconst pages = imagesArr.map((item, index) => {\n    const data = story?.[index];\n    const pageNumber = data?.page_number;\n    const totalPages = imagesArr.length;\n    \n    // Determine page type based on page number\n    const page_type = pageNumber === 1 ? 'cover' \n                    : pageNumber === totalPages ? 'end' \n                    : 'story';\n    \n    const imageLink = item?.json?.DRIVER_IMAGE_URL || null;\n    \n    return {\n        page_number: Number(pageNumber) - 1,\n        page_type: page_type,\n        text: data?.text || '',\n        image_url: imageLink\n    };\n});\n\n// Extract filename from story data or generate one\nconst storyTitle = story?.[0]?.text || 'storybook';\nconst filename = storyTitle\n    .toLowerCase()\n    .replace(/[^a-z0-9\\s]/g, '') // Remove special characters\n    .replace(/\\s+/g, '_')         // Replace spaces with underscores\n    .substring(0, 50);            // Limit length\n\n// Return single object with complete structure\nreturn [{\n    json: {\n        pages: pages,\n        filename: filename,\n        text_overlay_opacity: 0.6\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -672,
+        656
+      ],
+      "id": "cced65cf-b545-4806-a687-54bfe3be8453",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1O1R0F6JvAslFjXdOD6f8Pp5psuYtn2FM",
+          "mode": "list",
+          "cachedResultName": "StoryBook",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1O1R0F6JvAslFjXdOD6f8Pp5psuYtn2FM"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -48,
+        816
+      ],
+      "id": "4a10ea44-c8e7-4bab-86b4-7d5967bb60d6",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "xlcscirAF5n68NfQ",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        816,
+        288
+      ],
+      "id": "076c3b61-02ec-43d5-8298-172baa2f51ac",
+      "name": "Wait",
+      "webhookId": "96e239e9-6d4c-441a-b7b9-c6aac76cda0c"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all pages from previous node\nconst pages = $('Code').item.json.pages || [];\n\n// Extract only the \"text\" field into an array\nconst page_texts = pages.map(p => p.text);\n\n// Return in required format\nreturn [{\n  json: {\n    page_texts\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        656
+      ],
+      "id": "f2f93831-7982-43cc-8d31-a940861b05c5",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/pdf/generate-video",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"pdf_path\": \"{{ $('Generate PDF').item.json.file_path }}\",\n  \"page_texts\": {{ JSON.stringify($json.page_texts) }}\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        512,
+        656
+      ],
+      "id": "a697ca1d-112f-4b6c-8eb7-45d82c53973a",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A",
+          "mode": "list",
+          "cachedResultName": "KIDS_STORY",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "IMAGE_URL": "={{ $json.images[0].url }}",
+            "STATUS": "PENDING"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "IMAGE_URL",
+              "displayName": "IMAGE_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "DRIVER_IMAGE_URL",
+              "displayName": "DRIVER_IMAGE_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1200,
+        288
+      ],
+      "id": "940fc214-8ff1-4cf6-9b23-63d470398f37",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iMpjGGr8WAQQ3x3o",
+          "name": "GoogleSheetAuthentication"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A",
+          "mode": "list",
+          "cachedResultName": "KIDS_STORY",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "STATUS": "SUCCESS",
+            "DRIVER_IMAGE_URL": "={{ $json.webViewLink }}",
+            "IMAGE_URL": "={{ $('HTTP Request3').item.json.IMAGE_URL }}"
+          },
+          "matchingColumns": [
+            "IMAGE_URL"
+          ],
+          "schema": [
+            {
+              "id": "IMAGE_URL",
+              "displayName": "IMAGE_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DRIVER_IMAGE_URL",
+              "displayName": "DRIVER_IMAGE_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        160,
+        816
+      ],
+      "id": "860c5753-8834-4376-b6c2-f173f4581a43",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iMpjGGr8WAQQ3x3o",
+          "name": "GoogleSheetAuthentication"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A",
+          "mode": "list",
+          "cachedResultName": "KIDS_STORY",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "STATUS",
+              "lookupValue": "PENDING"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1232,
+        624
+      ],
+      "id": "2b0aa8f4-be5f-4640-886f-5d5953124086",
+      "name": "Get row(s) in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iMpjGGr8WAQQ3x3o",
+          "name": "GoogleSheetAuthentication"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A",
+          "mode": "list",
+          "cachedResultName": "KIDS_STORY",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit#gid=0"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "STATUS",
+              "lookupValue": "SUCCESS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        -1456,
+        448
+      ],
+      "id": "afc13002-c731-4c41-929f-ae9c780f6a8d",
+      "name": "Get row(s) in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iMpjGGr8WAQQ3x3o",
+          "name": "GoogleSheetAuthentication"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        1488
+      ],
+      "id": "15a759e8-cb4b-4cab-9ef9-006c3375a16d",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://queue.fal.run/fal-ai/flux-1/schnell",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"prompt\": \"Photorealistic watercolor storybook illustration of Pip the small hedgehog with detailed black and cream textured riding on bird Henry's back flying through forest. Pip has brown cream spines, grateful smile, leaf satchel. Henry has spread wings showing kindness. Sunny woodland with dappled light and fireflies. Watercolor storybook style. Heartwarming friendship scene for young children.\"\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -176,
+        1520
+      ],
+      "id": "b7f87f15-5a69-4fb5-81ea-aa0bd7c50ce6",
+      "name": "Generate Images1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.response_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        64,
+        1520
+      ],
+      "id": "df342b22-7d60-41a1-9b44-603b8eab955c",
+      "name": "Fetch Generated Images1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1O1R0F6JvAslFjXdOD6f8Pp5psuYtn2FM",
+          "mode": "list",
+          "cachedResultName": "StoryBook",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1O1R0F6JvAslFjXdOD6f8Pp5psuYtn2FM"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        624,
+        1520
+      ],
+      "id": "98e09cfc-ec87-4a82-805a-f384a73a08c2",
+      "name": "Upload file1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "xlcscirAF5n68NfQ",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.images[0].url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        320,
+        1520
+      ],
+      "id": "cf933646-8360-4e8d-b38a-33b691a97805",
+      "name": "HTTP Request4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get input data\nconst data = $input.first().json.story_data.pages;\n\n// Get only first 3 elements\nconst limited = data.slice(0, 3);\n\nreturn [\n  {\n    json: {\n      success: true,\n      story_data: {\n        pages: limited,\n        total_pages: limited.length,\n        character_name: limited.character_name,\n        theme: limited.theme,\n        art_style: limited.art_style,\n        age_range: limited.age_range,\n        quality_score: limited,\n        dynamic_title: limited\n      }\n    }\n  }\n];\n\n// Return each element as a new item\nreturn limited.map(el => ({ json: el }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -784,
+        16
+      ],
+      "id": "026e60f5-243d-4cc1-9a4f-0e4abe6243a4",
+      "name": "Code2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Story Parameters": {
+      "main": [
+        [
+          {
+            "node": "Generate Story",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Story": {
+      "main": [
+        [
+          {
+            "node": "Structure Story into Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Story into Pages": {
+      "main": [
+        [
+          {
+            "node": "Split Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Pages": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Scene Response": {
+      "main": [
+        [
+          {
+            "node": "Generate Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Images": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Generated Images": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Scene Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate PDF": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Generate PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Fetch Generated Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        []
+      ]
+    },
+    "Get row(s) in sheet1": {
+      "main": [
+        []
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Generate Images1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Images1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Generated Images1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Generated Images1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "Upload file1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "346513c6-aa5f-48b1-8c0f-fe4773a0a7e1",
+  "meta": {
+    "instanceId": "06e98ce9db23ff760b007eaefb3738ba91dce3528c57a63321e6eac113e705a1"
+  },
+  "id": "E85qxqJBrRGBsLnZ",
+  "tags": []
+}
