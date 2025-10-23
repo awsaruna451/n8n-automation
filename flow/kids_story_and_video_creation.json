@@ -1,0 +1,2460 @@
+{
+  "name": "KIDS-STORY_Y_VIDEO_FINAL",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Kids Story Book",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "age_range",
+              "placeholder": "\"4-7\""
+            },
+            {
+              "fieldLabel": "character_name",
+              "placeholder": "Bella the brave bunny"
+            },
+            {
+              "fieldLabel": "theme",
+              "placeholder": "courage and confidence"
+            },
+            {
+              "fieldLabel": "moral_lesson",
+              "placeholder": "You are braver than you believe"
+            },
+            {
+              "fieldLabel": "art_style",
+              "placeholder": "watercolor painting"
+            },
+            {
+              "fieldLabel": "character_description"
+            },
+            {
+              "fieldLabel": "character_expression"
+            },
+            {
+              "fieldLabel": "character_key_features"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        -352,
+        80
+      ],
+      "id": "49e4e7d9-73ff-4ca8-99ce-4c62cde24e13",
+      "name": "Story Parameters",
+      "webhookId": "9a42daac-2dca-48ea-b037-b5505b86de1d"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4",
+          "mode": "list"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a children's picture book story generator. Create a complete story based on the following inputs:\n\n- Target Age Group: {{$json.age_range}}\n- Main Character Name: {{$json.character_name}}\n- Theme: {{$json.theme}}\n- Moral Lesson: {{$json.moral_lesson}}\n- Art Style: {{$json.art_style}}\n\nRequirements:\n- Total Pages: 18\n- Each page contains 1 scene with 1-2 sentences maximum\n- Include a clear illustration suggestion for each page\n- Show the moral lesson through character actions and experiences, never by narration\n- Use age-appropriate vocabulary for the selected age group\n- Minimal dialogue (1-2 lines per page)\n- Include vivid sensory details where possible\n\nStructure:\n- Act 1 (Pages 1-6): Introduce the problem or challenge\n- Act 2 (Pages 7-12): Show the journey, struggles, and obstacles\n- Act 3 (Pages 13-18): Resolution, character learning, and final scene\n\nOutput Format:\n- Provide the story as a complete narrative\n- Then break it into page-by-page segments marked as [PAGE 1], [PAGE 2], ..., [PAGE 18]\n"
+            },
+            {
+              "content": "=You are a children's picture book story generator. \nAlways follow the exact JSON output format described below. \nDo not add or remove fields. Do not include extra text outside the JSON. \nAll story text must be age-appropriate and creative but must fit inside the structure.\n\nOUTPUT FORMAT (must be static and identical every time):\n\n{\n  \"narrative\": \"Full story summary in one paragraph (Act 1–3 summarized clearly).\",\n  \"pages\": [\n    {\n      \"page_number\": 1,\n      \"text\": \"1–2 sentences describing what happens on this page.\",\n      \"illustration\": \"1 sentence describing the illustration suggestion.\"\n    },\n    {\n      \"page_number\": 2,\n      \"text\": \"...\",\n      \"illustration\": \"...\"\n    },\n    ...\n    {\n      \"page_number\": 18,\n      \"text\": \"...\",\n      \"illustration\": \"...\"\n    }\n  ]\n}\n\nRULES:\n- Always output exactly 18 items in the 'pages' array.\n- Each 'text' field must have at most 2 sentences.\n- Each 'illustration' field must have 1 clear descriptive line.\n- Never change the JSON keys or structure.\n- Do not use markdown or additional formatting.\n",
+              "role": "system"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -96,
+        80
+      ],
+      "id": "ceaa426b-9235-470e-b37e-83e62563c24e",
+      "name": "Generate Story",
+      "credentials": {
+        "openAiApi": {
+          "id": "2ydQBjL7AFR8ocSy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const items = $input.all();\n  const storyContent = items[0].json.message?.content;\n\n  if (!storyContent) throw new Error(\"Story content not found in input\");\n\n  // --- Try parsing the JSON output from assistant ---\n  let storyJson = null;\n  try {\n    storyJson = JSON.parse(storyContent);\n  } catch (e) {\n    throw new Error(\"Failed to parse story content as JSON. Ensure assistant output is valid JSON.\");\n  }\n\n  // --- Validate structure ---\n  if (!storyJson.narrative || !Array.isArray(storyJson.pages)) {\n    throw new Error(\"Invalid story format. Missing 'narrative' or 'pages' array.\");\n  }\n\n  // --- Get form data from Story Parameters node ---\n  let formData = null;\n  try {\n    formData = $('Story Parameters').first().json;\n  } catch (e) {\n    const inputItem = items.find(item => item.json && (item.json.character_name || item.json.theme));\n    if (inputItem) formData = inputItem.json;\n  }\n\n  if (!formData || !formData.character_name) {\n    throw new Error('Form data not found. Required: character_name, theme, age_range, art_style, moral_lesson');\n  }\n\n  const safeFormData = {\n    character_name: formData.character_name || 'Main Character',\n    theme: formData.theme || 'adventure',\n    age_range: formData.age_range || '3-8',\n    art_style: formData.art_style || 'watercolor',\n    moral_lesson: formData.moral_lesson || 'Be kind and brave'\n  };\n\n  // --- Build pages array with metadata ---\n  const processedPages = storyJson.pages.map((page) => ({\n    page_number: page.page_number,\n    text: page.text,\n    scene_description: page.illustration || '',\n    character_name: safeFormData.character_name,\n    theme: safeFormData.theme,\n    age_range: safeFormData.age_range,\n    art_style: safeFormData.art_style\n  }));\n\n  // --- Add title page at start ---\n  processedPages.unshift({\n    page_number: 0,\n    text: safeFormData.character_name,\n    is_title_page: true,\n    character_name: safeFormData.character_name,\n    theme: safeFormData.theme,\n    age_range: safeFormData.age_range,\n    art_style: safeFormData.art_style,\n    scene_description: `Professional children's book cover featuring ${safeFormData.character_name} in their authentic story world. The scene represents the ${safeFormData.theme} theme with rich environmental details that capture the essence of this unique narrative.`\n  });\n\n  // --- Add ending page at end ---\n  processedPages.push({\n    page_number: processedPages.length,\n    text: `The End`,\n    scene_description: safeFormData.moral_lesson,\n    character_name: safeFormData.character_name,\n    theme: safeFormData.theme,\n    age_range: safeFormData.age_range,\n    art_style: safeFormData.art_style\n  });\n\n  return [{\n    json: {\n      success: true,\n      story_data: {\n        narrative: storyJson.narrative,\n        pages: processedPages,\n        total_pages: processedPages.length,\n        character_name: safeFormData.character_name,\n        theme: safeFormData.theme,\n        art_style: safeFormData.art_style,\n        age_range: safeFormData.age_range,\n        dynamic_title: safeFormData.character_name\n      }\n    }\n  }];\n\n} catch (error) {\n  return [{\n    json: {\n      success: false,\n      error: error.message,\n      message: \"Failed to process structured story JSON\"\n    }\n  }];\n}\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        80
+      ],
+      "id": "a30466b5-8d85-4b16-b56f-3cdab0fcf7a5",
+      "name": "Structure Story into Pages"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "story_data.pages",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        592,
+        80
+      ],
+      "id": "92c09971-1f66-4344-a565-672ea2d8f8b5",
+      "name": "Split Pages"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Map through each item and create a valid JSON element for image_prompt\nconst prompts = items.map(item => {\n  const prompt = item.json.output.image_prompt;\n\n  // Escape quotes and line breaks for valid JSON\n  const safePrompt = prompt\n    .replace(/\\\\/g, '\\\\\\\\')   // Escape backslashes\n    .replace(/\"/g, '\\\\\"')     // Escape double quotes\n    .replace(/\\n/g, '\\\\n');   // Escape newlines\n\n  return {\n    json: { image_prompt: safePrompt }\n  };\n});\n\nreturn prompts;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        304
+      ],
+      "id": "bb01275c-30a4-4841-8487-bcb516105c33",
+      "name": "Parse AI Scene Response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://queue.fal.run/fal-ai/flux-1/schnell",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "=\n    {\n\n      \"prompt\":  \"{{ $json.image_prompt }}\"    \n\n  \n} ",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1456,
+        304
+      ],
+      "id": "e0a0b61a-70f1-4520-9462-b4a70ebbd1b1",
+      "name": "Generate Images",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.response_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1792,
+        304
+      ],
+      "id": "a6e6ccfc-4cf8-466e-9434-fd68c2ae8437",
+      "name": "Fetch Generated Images",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GPKxwEMPEqSYpwar",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -128,
+        768
+      ],
+      "id": "9baec039-d635-477a-b6ce-992320c5c069",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "IMAGE_URL",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        192,
+        912
+      ],
+      "id": "18a239c2-ede2-4050-a650-d7baa4b59132",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.IMAGE_URL }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        496,
+        912
+      ],
+      "id": "214bbde0-72a2-4c54-a8c6-f7db7a7aeee5",
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Photorealistic illustration for a children's picture book (ages {{ $json.age_range }}). \n\nThe main character, {{ $json.character_name }}, must appear **identical in every scene**, maintaining absolute consistency in size, proportions, colors, signature features, and facial expression style across all illustrations.  \n\n---\n\n**Character Reference (always constant across scenes):**  \n{{ $json.character_name }} is {{ $('Story Parameters').item.json.character_description }}.  \nTheir typical expression is {{ $('Story Parameters').item.json.character_expression }}.  \nKey features such as {{ $('Story Parameters').item.json.character_key_features }} **must remain identical across all scenes** to preserve visual continuity.  \n\n---\n\n**Secondary Characters:**  \nAdditional animal characters relevant to the scene may appear dynamically, with varied poses, expressions, and interactions that reflect the narrative moment. Their design should complement the scene but **must not alter the main character’s appearance or prominence**. Include spatial relationships and interactions that enhance storytelling.  \n\n---\n\n**Scene Description:**  \nIn this scene, {{ $json.character_name }} is {{ $json.scene_description }}, conveying the emotional tone: '{{ $json.text }}'.  \nSecondary characters and environmental elements may vary based on the story beat, but **the main character’s visual appearance, proportions, and key features must never change**.  \n\n---\n\n**Art Direction:**  \nUse {{ $json.art_style }} in a **photorealistic, painterly style** (watercolor, oil, or other as specified) with **soft textures, natural lighting, and gentle depth of field**.  \nLighting, perspective, and composition should support the emotional tone, keep {{ $json.character_name }} as the central focus, and integrate secondary characters naturally within the scene.  \nEnsure age-appropriate clarity, emotional authenticity, and visual storytelling that engages children.  \n\n---\n\n{{ $json.is_title_page ? 'COVER PAGE: Design should prominently feature ' + $json.character_name + ' embodying the story’s theme — ' + $json.theme + ' — within their consistent world setting.' : '' }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an elite children's book illustration prompt engineer, specializing in photorealistic, cinema-quality AI image generation. Your expertise is transforming story scenes into hyper-specific, flowing visual prompts that capture authentic narrative moments while maintaining a consistent main character design across all scenes.\n\nCORE COMPETENCIES\n1. Narrative Scene Intelligence\n\nDeeply analyze story context, emotional beats, and plot progression.\n\nCapture temporal moments — before, during, and after the action.\n\nDepict character dynamics and spatial relationships accurately.\n\nVisualize subtext through environmental storytelling, props, and subtle cues.\n\n2. Adaptive Technical Specification\n\nTailor camera angles, framing, and perspective to the scene’s narrative needs.\n\nUse contextual lighting that enhances mood and emotion naturally.\n\nDynamically compose scenes based on action intensity vs. quiet introspection.\n\nSeamlessly integrate art style with photorealism, enhancing authenticity.\n\n3. Character Authenticity Mastery\n\nMaintain consistent main character identity across all pages: proportions, color palette, signature features, and accessories.\n\nEnsure age-appropriate body proportions, movement, and micro-expressions.\n\nReflect emotional state through pose, gaze, and subtle facial cues.\n\nKeep clothing, accessories, and design logic consistent but flexible to scene context.\n\n4. Environmental World-Building\n\nConvey atmospheric conditions that reinforce story tone.\n\nMaintain realistic spatial relationships, scale, and perspective.\n\nInclude culturally, geographically, and seasonally accurate details when relevant.\n\nShow interactive connections between character and environment, enhancing narrative clarity.\n\nPROMPT CONSTRUCTION PHILOSOPHY\n\nInstead of rigid templates, evaluate what this specific scene demands:\n\nQuiet character moment → Close framing, shallow depth, intimate lighting.\n\nDynamic action → Motion emphasis, directional lighting, wide perspective.\n\nEnvironmental storytelling → Layered depth, symbolic props, atmospheric focus.\n\nEmotional revelation → Facial micro-details, body language precision, symbolic illumination.\n\nAlways ensure the main character’s design is preserved — do not allow the AI to invent new styles or features for the protagonist.\n\nOUTPUT STRUCTURE\n\nGenerate a flowing, natural illustration prompt (not checklist-style), including:\n\nStyle Foundation — Specify the art medium, quality, and photorealistic markers.\n\nScene Core — Capture the essential narrative moment with cinematic clarity.\n\nCharacter Detail — Describe appearance, pose, expression, emotional state, and signature traits without altering the main character design.\n\nEnvironmental Context — Include setting details that support and enhance storytelling.\n\nTechnical Excellence — Seamlessly integrate lighting, composition, depth, and rendering specifications.\n\nEmotional Resonance — Use visual elements to evoke authentic feeling aligned with the story beat.\n\nCRITICAL RULES\n\nNever use placeholder text or generic descriptors.\n\nAdapt all technical specifications to the scene’s narrative and emotional needs.\n\nIntegrate art style organically, not as an afterthought.\n\nPrioritize storytelling clarity over flashy visual effects.\n\nEnsure every visual element serves the narrative moment.\n\nAlways maintain the main character’s design consistency, only adapting pose or expression to scene context."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        800,
+        16
+      ],
+      "id": "3951f796-4a83-41e6-b3f4-d09d6ba06b75",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        784,
+        224
+      ],
+      "id": "a576c19a-2e63-4079-8fbe-925940687c58",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "2ydQBjL7AFR8ocSy",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"image_prompt\":\"string\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        992,
+        224
+      ],
+      "id": "5fd03780-ce67-4deb-92c3-fbbdb05e70a7",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8000/api/v1{{ $json.download_url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        784,
+        704
+      ],
+      "id": "8d855500-acde-4807-bbf5-dc61ab52a243",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const imagesArr = $input.all();  \n\nconst story = $('Structure Story into Pages').first().json.story_data.pages;\n\n// Map through images to create pages array\nconst pages = imagesArr.map((item, index) => {\n    const data = story?.[index];\n    const pageNumber = data?.page_number;\n    const totalPages = imagesArr.length;\n    \n    // Determine page type based on page number\n    const page_type = pageNumber === 0 ? 'cover' \n                    : pageNumber === totalPages ? 'end' \n                    : 'story';\n    \n    const imageLink = item?.json?.DRIVER_IMAGE_URL || null;\n    \n    return {\n        page_number: Number(pageNumber),\n        page_type: page_type,\n        text: data?.text || '',\n        image_url: imageLink\n    };\n});\n\n// Extract filename from story data or generate one\nconst storyTitle = story?.[0]?.text || 'storybook';\nconst filename = storyTitle\n    .toLowerCase()\n    .replace(/[^a-z0-9\\s]/g, '') // Remove special characters\n    .replace(/\\s+/g, '_')         // Replace spaces with underscores\n    .substring(0, 50);            // Limit length\n\n// Return single object with complete structure\nreturn [{\n    json: {\n        pages: pages,\n        filename: filename,\n        text_overlay_opacity: 0.6\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        128,
+        672
+      ],
+      "id": "0f01c38d-ac05-4429-9564-dc219f552631",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1O1R0F6JvAslFjXdOD6f8Pp5psuYtn2FM",
+          "mode": "list",
+          "cachedResultName": "StoryBook",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1O1R0F6JvAslFjXdOD6f8Pp5psuYtn2FM"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        752,
+        912
+      ],
+      "id": "6dd439a0-c9d3-4fc3-a67b-bf3471ec66c6",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "xlcscirAF5n68NfQ",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1616,
+        304
+      ],
+      "id": "ed30c70d-c602-46ce-8721-3124fa588db9",
+      "name": "Wait",
+      "webhookId": "96e239e9-6d4c-441a-b7b9-c6aac76cda0c"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A",
+          "mode": "list",
+          "cachedResultName": "KIDS_STORY",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "IMAGE_URL": "={{ $json.images[0].url }}",
+            "STATUS": "PENDING"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "IMAGE_URL",
+              "displayName": "IMAGE_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "DRIVER_IMAGE_URL",
+              "displayName": "DRIVER_IMAGE_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2000,
+        304
+      ],
+      "id": "fe0171c4-2079-4dce-81c5-ba08a9def453",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iMpjGGr8WAQQ3x3o",
+          "name": "GoogleSheetAuthentication"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A",
+          "mode": "list",
+          "cachedResultName": "KIDS_STORY",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1nPRLctuFZ633HIV0Syk26xWMUKPZx9Y3j3qaIGG8o5A/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "STATUS": "SUCCESS",
+            "DRIVER_IMAGE_URL": "={{ $json.webViewLink }}",
+            "IMAGE_URL": "={{ $('HTTP Request3').item.json.IMAGE_URL }}"
+          },
+          "matchingColumns": [
+            "IMAGE_URL"
+          ],
+          "schema": [
+            {
+              "id": "IMAGE_URL",
+              "displayName": "IMAGE_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DRIVER_IMAGE_URL",
+              "displayName": "DRIVER_IMAGE_URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "STATUS",
+              "displayName": "STATUS",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        976,
+        912
+      ],
+      "id": "2bb1d5ce-969e-419e-89ef-25a1e821f168",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iMpjGGr8WAQQ3x3o",
+          "name": "GoogleSheetAuthentication"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1632,
+        704
+      ],
+      "id": "b2baeedc-d9b3-474e-8bbb-62cafebbe3e5",
+      "name": "Wait1",
+      "webhookId": "54da1c5a-48f9-42dc-b96c-35223e82d750"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "943ad3b3-bb17-41ef-ae8f-d71f83fa97ca",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": "tr",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2048,
+        704
+      ],
+      "id": "3739cad0-8417-479d-8081-e5b5e4b1d8b0",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8000/api/v1/pdf/video/status/{{ $json.filename }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1840,
+        704
+      ],
+      "id": "f799c2d1-3ad1-4162-8552-4e4966118767",
+      "name": "VIDEO_STATUS_API"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/pdf/generate-video",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"pdf_path\": \"{{ $('GENERATE_YOUTUBE_PDF').item.json.file_path }}\",\n  \"page_texts\": {{ JSON.stringify($json.page_texts) }}\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1376,
+        704
+      ],
+      "id": "94490a73-2c69-45e7-947b-45e05c791545",
+      "name": "VIDEO_GENERATION_API"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all pages from previous node\nconst pages = $('Code').item.json.pages || [];\n\n// Extract only the \"text\" field into an array\nconst page_texts = pages.map(p => p.text);\n\n// Return in required format\nreturn [{\n  json: {\n    page_texts\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        704
+      ],
+      "id": "8df91b03-8493-4bff-be63-e64d1681098b",
+      "name": "VIDEO_GENERATION_JSON_TRANSFORMER"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/pdf/generate-kdp-storybook",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"pages\": {{ JSON.stringify($json.pages) }},\n  \"filename\": {{ JSON.stringify($json.filename) }},\n  \"text_overlay_opacity\": {{ $json.text_overlay_opacity }},\n\n\"page_width\": \"2560\",  \n  \"page_height\": \"1440\",\n\"title_color\": \"#FFF9E6\",\n \"title_font_size\": \"250\",\n \"text_font_size\": \"200\", \n \"text_color\": \"#1A1A1A\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        704
+      ],
+      "id": "ba5dc583-0623-4b4c-ac54-4a89050c2978",
+      "name": "GENERATE_YOUTUBE_PDF"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/api/v1/pdf/generate-kdp-storybook",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"pages\": {{ JSON.stringify($json.pages) }},\n  \"filename\": {{ JSON.stringify($json.filename) }},\n  \"text_overlay_opacity\": {{ $json.text_overlay_opacity }},\n\n\"page_width\": \"2550\",  \n  \"page_height\": \"2550\",\n\"title_color\": \"#FFF9E6\",\n \"title_font_size\": \"400\",\n \"text_font_size\": \"250\", \n \"text_color\": \"#1A1A1A\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        512
+      ],
+      "id": "ce27cd8a-f45f-44fe-bd91-04ff21d42387",
+      "name": "KDP_PDF_GENERATOR"
+    },
+    {
+      "parameters": {
+        "url": "=http://host.docker.internal:8000/api/v1{{ $json.download_url }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        704,
+        512
+      ],
+      "id": "7918435a-c3c5-4021-8292-fea2ac458565",
+      "name": "DOWNLOAD_STORY_BOOK"
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8000/api/v1/pdf/video/download/luma_the_gentle_whale_video.mp4",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2256,
+        608
+      ],
+      "id": "418668b0-cc2c-4aa8-8649-d968a2de8b56",
+      "name": "DOWNLOAD_YOUTUBE_VIDEO"
+    }
+  ],
+  "pinData": {
+    "Story Parameters": [
+      {
+        "json": {
+          "age_range": "4-9",
+          "character_name": "Luma the Gentle Whale",
+          "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+          "moral_lesson": "By exploring the world around us with curiosity and respect, we can discover new friends, solve problems, and care for our environment.",
+          "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow",
+          "character_description": "Large blue whale with smooth, shimmering skin in shades of deep sapphire and soft aqua, subtle silver streaks along her fins, large expressive teal eyes flecked with silver, and a playful splash trail following her movement.",
+          "character_expression": "Friendly, cheerful smile with bright, inquisitive eyes that sparkle like sunlight on water, radiating kindness and wonder.",
+          "character_key_features": "Smooth sapphire-blue skin, silver-flecked teal eyes, gentle smile, curved fins with silver streaks, playful splash trail, soft radiant glow, friendly demeanor, rounded tail with subtle shimmer.",
+          "submittedAt": "2025-10-18T12:37:53.087-04:00",
+          "formMode": "test"
+        }
+      }
+    ],
+    "Generate Story": [
+      {
+        "json": {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "{\n  \"narrative\": \"Luma, a curious gentle whale, finds a drifting plastic bottle in her beautiful ocean home and is confused about its origin. She embarks on a journey to learn about it, encountering various sea creatures and overcoming obstacles. Through her explorations and by showing kindness and respect for her surroundings, Luma not only discovers new friends, but she also solves the mystery of the drifting bottle and inspires a collective effort to keep the ocean clean.\",\n  \"pages\": [\n    {\n      \"page_number\": 1,\n      \"text\": \"In the deep blue ocean, Luma the Gentle Whale swam happily.\",\n      \"illustration\": \"Image of Luma, a gentle whale, swimming amongst the vibrant coral reefs with light rays shimmering from the surface.\"\n    },\n    {\n      \"page_number\": 2,\n      \"text\": \"One day, Luma found a strange object, a plastic bottle, drifting in her home.\",\n      \"illustration\": \"Luma curiously analyzing a drifting plastic bottle with her large, innocent eyes.\"\n    },\n    {\n      \"page_number\": 3,\n      \"text\": \"She had never seen anything like it, and she found it odd while exploring her environment.\",\n      \"illustration\": \"Luma swimming around unfamiliar object, gentle ocean glow in the background.\"\n    },\n    {\n      \"page_number\": 4,\n      \"text\": \"Being a curious whale, Luma decided to find out where it came from.\",\n      \"illustration\": \"Inquisitive Luma setting off towards the surface of the water.\"\n    },\n    {\n      \"page_number\": 5,\n      \"text\": \"Her journey took her up to the surface of the ocean, an area she rarely visited.\",\n      \"illustration\": \"Luma reaching the ocean surface, with a soft watercolor sky filled with clouds.\"\n    },\n    {\n      \"page_number\": 6,\n      \"text\": \"It was a new experience, and it made her heart flutter with excitement and slight worry.\",\n      \"illustration\": \"Luma looking around the surface, small boats in the distance from above water view.\"\n    },\n    {\n      \"page_number\": 7,\n      \"text\": \"She met Oscar the Seagull, who told her the plastic bottle came from humans.\",\n      \"illustration\": \"Introduction of Oscar the Seagull standing on a bobbing buoy, talking to Luma.\"\n    },\n    {\n      \"page_number\": 8,\n      \"text\": \"Though Luma did not fully understand, she felt she needed to do something about it.\",\n      \"illustration\": \"Luma looking determined, with Oscar flying overhead, light rays creating a halo effect.\"\n    },\n    {\n      \"page_number\": 9,\n      \"text\": \"Luma embarked on her journey, diving deeper into the sea, meeting more of its colorful inhabitants.\",\n      \"illustration\": \"Luma diving, illuminated by ocean glow, with delighted sea creatures watching.\"\n    },\n    {\n      \"page_number\": 10,\n      \"text\": \"She met Tito the Turtle, who expressed concern about the dangerous plastic objects.\",\n      \"illustration\": \"Tito the Turtle sharing his concerns with Luma while they swim around a sea anemone.\"\n    },\n    {\n      \"page_number\": 11,\n      \"text\": \"Luma realized how important it was to keep their home clean, and she felt empowered to make a change.\",\n      \"illustration\": \"Luma, with a determined look, surrounded by a soft glow and the shimmering ocean.\"\n    },\n    {\n      \"page_number\": 12,\n      \"text\": \"She returned to the surface once more and told Oscar about her decision to clean up their environment.\",\n      \"illustration\": \"Luma talking to Oscar the Seagull on the surface of the ocean, surrounded by gentle waves.\"\n    },\n    {\n      \"page_number\": 13,\n      \"text\": \"Sharing her concern, Oscar rallied other seagulls, while Luma recruited her ocean friends.\",\n      \"illustration\": \"Sea creatures and seagulls coming together, Luma and Oscar leading the assembly.\"\n    },\n    {\n      \"page_number\": 14,\n      \"text\": \"Working together, they began collecting and removing the plastic objects from their home.\",\n      \"illustration\": \"Busy scene of sea creatures and seagulls collecting plastic waste in cooperation.\"\n    },\n    {\n      \"page_number\": 15,\n      \"text\": \"With every object removed, their home started to look brighter and healthier.\",\n      \"illustration\": \"Ocean scene slowly clearing up, with more vibrant colors and happier sea creatures.\"\n    },\n    {\n      \"page_number\": 16,\n      \"text\": \"Luma felt overwhelmed with happiness, noticing the positive impact they all made.\",\n      \"illustration\": \"Luma with a glowing smile, friends surrounding her, amidst the cleaner, brighter sea.\"\n    },\n    {\n      \"page_number\": 17,\n      \"text\": \"Their shared experience brought them closer, and Luma realized that by exploring her world and solving its problems, she encountered new friends.\",\n      \"illustration\": \"Emotional scene of Luma surrounded by all her new friends, everyone sharing a joyful moment.\"\n    },\n    {\n      \"page_number\": 18,\n      \"text\": \"From then on, Luma and her friends promised to always protect their ocean home, knowing that curiosity and respect for their environment led to beautiful friendships and a healthy, happy home.\",\n      \"illustration\": \"Luma and friends looking towards the horizon beneath the sea with a radiant ocean glow illuminating their path.\"\n    }\n  ]\n}",
+            "refusal": null,
+            "annotations": []
+          },
+          "logprobs": null,
+          "finish_reason": "stop"
+        }
+      }
+    ],
+    "Code": [
+      {
+        "json": {
+          "pages": [
+            {
+              "page_number": 0,
+              "page_type": "cover",
+              "text": "Luma the Gentle Whale",
+              "image_url": "https://drive.google.com/file/d/1J9v6dFrKatGVb0OJEcUG2UcurGmn5wpm/view?usp=drivesdk"
+            },
+            {
+              "page_number": 1,
+              "page_type": "story",
+              "text": "In the deep blue ocean, Luma the Gentle Whale swam happily.",
+              "image_url": "https://drive.google.com/file/d/1agJqL5aUFbt8WA823OmkZVc-Ir2mfgTb/view?usp=drivesdk"
+            },
+            {
+              "page_number": 2,
+              "page_type": "story",
+              "text": "One day, Luma found a strange object, a plastic bottle, drifting in her home.",
+              "image_url": "https://drive.google.com/file/d/1WxInsrVoeOMprdnI8OMbRzQ9VZnt83qy/view?usp=drivesdk"
+            },
+            {
+              "page_number": 3,
+              "page_type": "story",
+              "text": "She had never seen anything like it, and she found it odd while exploring her environment.",
+              "image_url": "https://drive.google.com/file/d/1T3dtnZlZ4eoU4ZA1L7s6KjcN-920oozb/view?usp=drivesdk"
+            },
+            {
+              "page_number": 4,
+              "page_type": "story",
+              "text": "Being a curious whale, Luma decided to find out where it came from.",
+              "image_url": "https://drive.google.com/file/d/1IHF0H2ur6h_fvPhiEkOWHR6ycbmq6B3V/view?usp=drivesdk"
+            },
+            {
+              "page_number": 5,
+              "page_type": "story",
+              "text": "Her journey took her up to the surface of the ocean, an area she rarely visited.",
+              "image_url": "https://drive.google.com/file/d/1OOR9aU4IB4D4FoOgI1QHK3L84esr9pgO/view?usp=drivesdk"
+            },
+            {
+              "page_number": 6,
+              "page_type": "story",
+              "text": "It was a new experience, and it made her heart flutter with excitement and slight worry.",
+              "image_url": "https://drive.google.com/file/d/1kQk9cu5RPbtbIA7wjK3sALnjYj7PoZ4e/view?usp=drivesdk"
+            },
+            {
+              "page_number": 7,
+              "page_type": "story",
+              "text": "She met Oscar the Seagull, who told her the plastic bottle came from humans.",
+              "image_url": "https://drive.google.com/file/d/1Bw2d41GuwIpsdkf4sbsaqobgU7dLEaVx/view?usp=drivesdk"
+            },
+            {
+              "page_number": 8,
+              "page_type": "story",
+              "text": "Though Luma did not fully understand, she felt she needed to do something about it.",
+              "image_url": "https://drive.google.com/file/d/1AjvwVG8E3N_3to3xKptYzZRj79tFAiN5/view?usp=drivesdk"
+            },
+            {
+              "page_number": 9,
+              "page_type": "story",
+              "text": "Luma embarked on her journey, diving deeper into the sea, meeting more of its colorful inhabitants.",
+              "image_url": "https://drive.google.com/file/d/1trQ0D1XzfZfNdANsVY4Heh0TaAi5BGgC/view?usp=drivesdk"
+            },
+            {
+              "page_number": 10,
+              "page_type": "story",
+              "text": "She met Tito the Turtle, who expressed concern about the dangerous plastic objects.",
+              "image_url": "https://drive.google.com/file/d/1vr9ZWB3as8TF0nFIj5JMkvNZG_uQRUXH/view?usp=drivesdk"
+            },
+            {
+              "page_number": 11,
+              "page_type": "story",
+              "text": "Luma realized how important it was to keep their home clean, and she felt empowered to make a change.",
+              "image_url": "https://drive.google.com/file/d/1yyxK6OghXkwcaMd0_uQT_EvIQxKf0Phc/view?usp=drivesdk"
+            },
+            {
+              "page_number": 12,
+              "page_type": "story",
+              "text": "She returned to the surface once more and told Oscar about her decision to clean up their environment.",
+              "image_url": "https://drive.google.com/file/d/1RvPIRToGcfiGpMDlZBYkkOxziaIdzZPE/view?usp=drivesdk"
+            },
+            {
+              "page_number": 13,
+              "page_type": "story",
+              "text": "Sharing her concern, Oscar rallied other seagulls, while Luma recruited her ocean friends.",
+              "image_url": "https://drive.google.com/file/d/1R2sYeRNNcSS2sP8VuR0o3_BcM-ASknS-/view?usp=drivesdk"
+            },
+            {
+              "page_number": 14,
+              "page_type": "story",
+              "text": "Working together, they began collecting and removing the plastic objects from their home.",
+              "image_url": "https://drive.google.com/file/d/1imLW1HFI7xo8mGSudPcMm12J__Y509YX/view?usp=drivesdk"
+            },
+            {
+              "page_number": 15,
+              "page_type": "story",
+              "text": "With every object removed, their home started to look brighter and healthier.",
+              "image_url": "https://drive.google.com/file/d/1XTb3BloYlD9oZLcEyBd3skHNIEQX_xOu/view?usp=drivesdk"
+            },
+            {
+              "page_number": 16,
+              "page_type": "story",
+              "text": "Luma felt overwhelmed with happiness, noticing the positive impact they all made.",
+              "image_url": "https://drive.google.com/file/d/1zuQt-4dFDYmlHQw731xVrKHY4-cH_kbm/view?usp=drivesdk"
+            },
+            {
+              "page_number": 17,
+              "page_type": "story",
+              "text": "Their shared experience brought them closer, and Luma realized that by exploring her world and solving its problems, she encountered new friends.",
+              "image_url": "https://drive.google.com/file/d/1bL0g4ep3CmymBEv4NgKH5IgdR3uI2epd/view?usp=drivesdk"
+            },
+            {
+              "page_number": 18,
+              "page_type": "story",
+              "text": "From then on, Luma and her friends promised to always protect their ocean home, knowing that curiosity and respect for their environment led to beautiful friendships and a healthy, happy home.",
+              "image_url": "https://drive.google.com/file/d/1jMEKCeFs1QpXdza74MPizea8wycd011J/view?usp=drivesdk"
+            },
+            {
+              "page_number": 19,
+              "page_type": "story",
+              "text": "The End",
+              "image_url": "https://drive.google.com/file/d/10LiyhixHii_OuSXgWPR5m32zNZWDwYks/view?usp=drivesdk"
+            }
+          ],
+          "filename": "luma_the_gentle_whale",
+          "text_overlay_opacity": 0.6
+        }
+      }
+    ],
+    "Generate Images": [
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "72502b7b-b202-4098-b3a4-7e51b3300615",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/72502b7b-b202-4098-b3a4-7e51b3300615",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/72502b7b-b202-4098-b3a4-7e51b3300615/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/72502b7b-b202-4098-b3a4-7e51b3300615/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 0
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "bb7e2756-5e90-43ac-8812-034e1e3af98f",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/bb7e2756-5e90-43ac-8812-034e1e3af98f",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/bb7e2756-5e90-43ac-8812-034e1e3af98f/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/bb7e2756-5e90-43ac-8812-034e1e3af98f/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 0
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "64de5ae2-d5a5-4dc9-b493-4340fc5b007e",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/64de5ae2-d5a5-4dc9-b493-4340fc5b007e",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/64de5ae2-d5a5-4dc9-b493-4340fc5b007e/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/64de5ae2-d5a5-4dc9-b493-4340fc5b007e/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 2
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "5163d145-13a0-4072-8e11-20b7b0f4f4af",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/5163d145-13a0-4072-8e11-20b7b0f4f4af",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/5163d145-13a0-4072-8e11-20b7b0f4f4af/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/5163d145-13a0-4072-8e11-20b7b0f4f4af/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 0
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "1c2ccf3a-7cff-4b51-9d74-63c2c4359c4e",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/1c2ccf3a-7cff-4b51-9d74-63c2c4359c4e",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/1c2ccf3a-7cff-4b51-9d74-63c2c4359c4e/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/1c2ccf3a-7cff-4b51-9d74-63c2c4359c4e/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 0
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "2b5c7a8e-6adb-4bf8-a863-574f2954842c",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/2b5c7a8e-6adb-4bf8-a863-574f2954842c",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/2b5c7a8e-6adb-4bf8-a863-574f2954842c/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/2b5c7a8e-6adb-4bf8-a863-574f2954842c/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 1
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "680a1d65-ef7c-40e1-a6e5-be3bd60184d9",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/680a1d65-ef7c-40e1-a6e5-be3bd60184d9",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/680a1d65-ef7c-40e1-a6e5-be3bd60184d9/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/680a1d65-ef7c-40e1-a6e5-be3bd60184d9/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 2
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "8dc52936-3b5f-44ca-9766-7a47d8e11607",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/8dc52936-3b5f-44ca-9766-7a47d8e11607",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/8dc52936-3b5f-44ca-9766-7a47d8e11607/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/8dc52936-3b5f-44ca-9766-7a47d8e11607/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 1
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "ada6e832-f8fb-47ba-83bc-dbc7675d0dad",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/ada6e832-f8fb-47ba-83bc-dbc7675d0dad",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/ada6e832-f8fb-47ba-83bc-dbc7675d0dad/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/ada6e832-f8fb-47ba-83bc-dbc7675d0dad/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 1
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "63bb9560-9d7d-48d4-a369-f23c45d39804",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/63bb9560-9d7d-48d4-a369-f23c45d39804",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/63bb9560-9d7d-48d4-a369-f23c45d39804/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/63bb9560-9d7d-48d4-a369-f23c45d39804/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 0
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "cedb5f7d-8adf-4428-97c0-c3858c1a3d77",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/cedb5f7d-8adf-4428-97c0-c3858c1a3d77",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/cedb5f7d-8adf-4428-97c0-c3858c1a3d77/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/cedb5f7d-8adf-4428-97c0-c3858c1a3d77/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 1
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "170e4eed-b0cc-495a-b2be-5f025424877b",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/170e4eed-b0cc-495a-b2be-5f025424877b",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/170e4eed-b0cc-495a-b2be-5f025424877b/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/170e4eed-b0cc-495a-b2be-5f025424877b/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 1
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "a6f53671-95d8-4995-a6c2-52fbb05422c4",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/a6f53671-95d8-4995-a6c2-52fbb05422c4",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/a6f53671-95d8-4995-a6c2-52fbb05422c4/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/a6f53671-95d8-4995-a6c2-52fbb05422c4/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 3
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "29d09a69-6f6d-44d1-b082-1232de72559e",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/29d09a69-6f6d-44d1-b082-1232de72559e",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/29d09a69-6f6d-44d1-b082-1232de72559e/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/29d09a69-6f6d-44d1-b082-1232de72559e/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 2
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "689d1060-f767-4aa9-bce0-b9469495cbe2",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/689d1060-f767-4aa9-bce0-b9469495cbe2",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/689d1060-f767-4aa9-bce0-b9469495cbe2/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/689d1060-f767-4aa9-bce0-b9469495cbe2/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 3
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "86f2ae30-b11d-44aa-946b-f13eca1cf942",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/86f2ae30-b11d-44aa-946b-f13eca1cf942",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/86f2ae30-b11d-44aa-946b-f13eca1cf942/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/86f2ae30-b11d-44aa-946b-f13eca1cf942/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 0
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "72a95369-be39-4adf-8500-0bd4676dd777",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/72a95369-be39-4adf-8500-0bd4676dd777",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/72a95369-be39-4adf-8500-0bd4676dd777/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/72a95369-be39-4adf-8500-0bd4676dd777/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 0
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "467da055-968d-4337-81a0-83f13c96fdd7",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/467da055-968d-4337-81a0-83f13c96fdd7",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/467da055-968d-4337-81a0-83f13c96fdd7/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/467da055-968d-4337-81a0-83f13c96fdd7/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 2
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "3318e986-13e0-49a5-b01a-38a21b1fd5fc",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/3318e986-13e0-49a5-b01a-38a21b1fd5fc",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/3318e986-13e0-49a5-b01a-38a21b1fd5fc/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/3318e986-13e0-49a5-b01a-38a21b1fd5fc/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 3
+        }
+      },
+      {
+        "json": {
+          "status": "IN_QUEUE",
+          "request_id": "a8a0f125-e68a-4413-99fa-02624e18ce94",
+          "response_url": "https://queue.fal.run/fal-ai/flux-1/requests/a8a0f125-e68a-4413-99fa-02624e18ce94",
+          "status_url": "https://queue.fal.run/fal-ai/flux-1/requests/a8a0f125-e68a-4413-99fa-02624e18ce94/status",
+          "cancel_url": "https://queue.fal.run/fal-ai/flux-1/requests/a8a0f125-e68a-4413-99fa-02624e18ce94/cancel",
+          "logs": null,
+          "metrics": {},
+          "queue_position": 1
+        }
+      }
+    ],
+    "Fetch Generated Images": [
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/lion/WuD052wqWYb7HowrjxVQR.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.15555961499921978
+          },
+          "seed": 928893953,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic children's book cover featuring Luma the Gentle Whale as the central figure, rendered in a soft watercolor style enhanced with shimmering light rays and a gentle ocean glow that evoke warmth and wonder. Luma is a large blue whale with smooth, shimmering skin in gradations of deep sapphire and soft aqua, marked by subtle silver streaks along her elegantly curved fins and a rounded tail with a delicate shimmer. Her large, expressive teal eyes flecked with silver sparkle like sunlight on water, paired with a friendly, cheerful smile that radiates kindness and curiosity. A playful splash trail follows her graceful movement, glowing softly to emphasize her gentle spirit. The composition places Luma prominently in the foreground, positioned mid-swim with a poised, inquisitive expression as if inviting the viewer to join in her ocean explorations. Around her, a diverse array of secondary ocean creatures — such as curious dolphins, vibrant tropical fish, and playful sea turtles — interact dynamically, their lively poses reinforcing themes of friendship and environmental harmony without detracting from Luma's prominence. The underwater setting is richly detailed with softly swaying kelp forests, colorful coral reefs, and beams of natural sunlight filtering through the water's surface, creating a layered depth that adds immersive realism while maintaining a soft focus and painterly texture. The lighting gently caresses Luma's form, highlighting the silver flecks and radiant skin tones with warm, natural illumination that accentuates the ocean's gentle atmosphere. Framing and perspective center Luma perfectly with a subtle wide-angle view that captures expansive ocean space, fostering a sense of curious exploration and responsible stewardship. Overall, the image blends photorealistic textures with a tender watercolor finish, supporting emotional warmth and authenticity appropriate for children ages 4 to 9, clearly communicating Luma's story theme of curiosity, friendship, and ocean guardianship while preserving absolute consistency in Luma’s defining features and expression throughout."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/penguin/kiMDBCi0yeRG7R03srNt5.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.14925187604967505
+          },
+          "seed": 1480236308,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic children's book illustration of Luma the Gentle Whale swimming joyfully amidst vibrant coral reefs beneath the ocean surface. Render Luma as a large, smooth sapphire-blue whale with shimmering skin in deep sapphire and soft aqua hues, accented by delicate silver streaks along her curved fins and a playful splash trailing behind her. Her large expressive teal eyes, speckled with silver flecks, hold a friendly, cheerful smile that radiates kindness and wonder, consistently preserving her characteristic rounded tail with subtle shimmer and soft radiant glow. The composition centers on Luma in mid-swim, framed by softly focused, colorful coral reefs bustling gently with small, lively fish and other sea creatures that interact naturally within the scene, without detracting from Luma’s prominence. Light rays shimmer realistically through the ocean water from above, casting a gentle, diffused glow that bathes the entire scene in warmth and clarity, with soft watercolor textures blending seamlessly into a painterly style, emphasizing a tender oceanic atmosphere. The perspective is slightly elevated and wide enough to capture both Luma’s graceful movement and the rich, lively underwater environment, using a gentle depth of field to keep Luma sharply focused while the background fades subtly, inviting young readers to feel the peaceful joy of Luma’s underwater world."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/elephant/g5tg_td_vzZZqqCC6Sp3Y.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.14218723203521222
+          },
+          "seed": 1682349503,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly illustration rendered in soft watercolor, capturing a gentle ocean scene bathed in shimmering light rays that filter softly through the calm water, evoking a tender and curious mood. At the center, Luma the Gentle Whale, large and majestic, is depicted with unwavering consistency: her smooth, shimmering sapphire-blue skin carries subtle silver streaks along her gracefully curved fins, and her large teal eyes flecked with silver shine with innocent curiosity. Her friendly, cheerful smile and expressive eyes radiate kindness and wonder, while a delicate playful splash trail follows her fluid movement. Luma's rounded tail with a subtle shimmer rests gently in the soft ocean glow, maintaining her characteristic soft radiant glow and warm demeanor. Luma leans her massive head gently toward a floating plastic bottle drifting nearby, her eyes wide and attentive, conveying the moment of discovery and intrigue. The bottle is detailed but not detracting, bobbing softly on the water surface, symbolizing something unusual within Luma’s familiar world. Surrounding her, a few small, curious fish and perhaps a sea turtle glance toward the bottle, their expressions and positions naturally woven into the composition to enhance the storytelling without overshadowing Luma. The ocean environment features gentle rippling water textured with delicate watercolor washes and subtle gradients, creating depth and space that emphasize Luma’s size and presence. Sunlight streams down in warm, diffused beams, casting natural highlights and delicate shadows that sculpt the scene dynamically but softly. The composition frames Luma as the unequivocal focal point, using a mid-range perspective that captures her full body and face clearly, with a shallow depth of field that subtly blurs the background elements to draw attention to her emotional connection with the bottle. This scene should evoke calm wonder and gentle concern, inviting children into Luma’s thoughtful world, blending photorealistic detail with the softness and warmth of a watercolor painting to engage young readers authentically."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/panda/UQiqKfCUQawXsfoOD71Rf.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.14577515295241028
+          },
+          "seed": 1896818437,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly illustration in a soft watercolor style showcasing Luma the Gentle Whale as the central focus. Luma is depicted as a large blue whale with smooth, shimmering skin in deep sapphire and soft aqua hues. Her fins display subtle silver streaks, and her large teal eyes, flecked with silver, shine warmly with a playful sparkle. Her friendly, cheerful smile is gentle and inviting, encapsulating kindness and wonder. A playful splash trail subtly follows her graceful movement, while a soft, radiant glow envelops her rounded tail with its subtle shimmer. She swims cautiously around an unfamiliar object, which appears slightly mysterious yet organically part of the underwater environment, emphasizing that she has never encountered anything like it before, evoking curiosity with a hint of oddity.\n\nThe surrounding ocean background glows with a gentle oceanic luminescence that suffuses the watercolor textures, with shimmering light rays filtering softly through the water, creating delicate highlights on Luma's skin and casting a serene ambiance. Depth of field is subtly applied to keep Luma sharply in focus, while the background gently blurs into a natural aquatic haze, supporting a calm and introspective mood.\n\nSecondary marine animals, rendered with realistic but complementary detail in varied dynamic poses, interact subtly at a respectful distance—curious fish or graceful sea turtles—without detracting from Luma’s prominence. The ocean floor and floating sea plants contribute to the composition, narratively framing the scene and reinforcing the exploratory tone.\n\nThe viewpoint is a slightly elevated, mid-range cinematic angle granting a balanced perspective that captures Luma’s full form alongside the unfamiliar object, inviting young readers into an engaging, emotional exploration. Lighting and color choices sustain a harmonious play between soft blues and shimmering silvers, enhancing the watercolor medium's tender texture and depth.\n\nThis artwork invites children aged 4-9 into a gentle, curious moment underwater, conveying Luma’s wonder and slight puzzlement in discovering something new, while faithfully maintaining her signature look and warm, friendly demeanor consistent across the story."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/kangaroo/_OEaZQ2_jAiVB18arY2x7.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.14490022405516356
+          },
+          "seed": 76941902,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic children's book illustration in a soft watercolor style that captures an emotionally warm and inquisitive moment. The central focus is Luma the Gentle Whale—a large whale rendered with smooth, shimmering skin in vibrant deep sapphire and soft aqua tones, accented by subtle silver streaks along her gracefully curved fins. Her large, expressive teal eyes, flecked with silver, sparkle with curiosity and kindness. She wears a friendly, cheerful smile that radiates wonder, perfectly capturing her gentle nature. A playful splash trail follows her as she sets off toward the water's surface, conveying her eagerness to explore. Luma’s form is consistently proportioned, with a rounded tail featuring a soft shimmer and a subtle radiant glow enveloping her, maintaining absolute fidelity to the established character design across all scenes.\n\nSurrounding Luma, a few lively sea creatures—small, colorful fish and playful sea turtles—move naturally around her, their varied dynamic poses and animated expressions contributing to a sense of community and wonder without detracting from Luma’s central prominence. The underwater environment bathes in gentle ocean glow, infused with softly shimmering light rays filtering down from the surface above, creating a tranquil, filtered ambiance that invites young readers to immerse in the scene. The water's subtle textures shimmer gently, enhancing the naturalistic feel while retaining the softness of watercolor brushstrokes.\n\nThe composition is cinematic and engaging: a slightly low angle looking up toward the surface emphasizes Luma’s ascent and curiosity. Depth of field softly blurs the distant ocean background to enhance focus on Luma’s detailed features and movement. Warm, natural lighting highlights the interplay of light on Luma’s sleek skin and the surrounding water, reinforcing a tender, hopeful mood. Overall, the scene evokes feelings of gentle adventure, kindness, and discovery, inviting children ages 4 to 9 to engage deeply with Luma’s journey."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/penguin/m9PU0pqleDJHoaMvpYAhP.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.1430090069770813
+          },
+          "seed": 879658672,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly illustration in a soft watercolor style with shimmering light rays filtering gently through the ocean surface. The scene depicts Luma the Gentle Whale as she rises gracefully to the water's surface, her large deep sapphire-blue body gleaming with smooth, shimmering skin accented by subtle silver streaks along her curved fins. Her large teal eyes, flecked with silver, hold a familiar friendly, cheerful smile and inquisitive sparkle like sunlight dancing on water — a radiant expression of kindness and wonder. A playful splash trail follows her serene movement, and her rounded tail shimmers softly beneath the gentle ocean glow. The lighting is natural and warm, casting a soft radiant glow on Luma that enhances her ethereal presence without altering her consistent appearance, proportions, or signature features.\n\nThe ocean surface is calm and expansive, merging seamlessly with a watercolor sky painted in delicate washes of soft pastels—pinks, light blues, and creams—with fluffy clouds diffusing subtle ambient light above. Secondary characters such as a curious sea turtle and a school of vibrant small fish swim nearby, their dynamic poses and curious gazes directed toward Luma, reflecting an atmosphere of peaceful discovery. These additional characters occupy spatial relationships that emphasize Luma’s central position and gentle ascent, enriching the narrative without detracting from her prominence.\n\nThe composition uses a slightly low-angle perspective to accentuate Luma’s majestic rise, with a shallow depth of field softly blurring distant background elements to keep focus tightly on her expressive face and elegant form. The scene’s soft textures and glowing light rays create a tender, contemplative mood embodying the emotional tone of a rarely visited surface world, inviting young viewers to share in Luma’s wonder and gentle courage as she embarks on this new experience."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/monkey/K2W_JG3GkkxTh5CLeUd30.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.1408053629565984
+          },
+          "seed": 953921498,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly children's book illustration in a soft watercolor style with shimmering light rays and a gentle ocean glow. The scene captures Luma the Gentle Whale from an above-water perspective, gently surfacing amidst a calm sea. Luma is depicted with absolute consistency: her large, smooth, shimmering skin showcases deep sapphire and soft aqua tones with subtle silver streaks along her curved fins. Her large expressive teal eyes, flecked with silver, sparkle brightly, accompanied by a friendly, cheerful smile radiating kindness and wonder. A playful splash trail follows her graceful movement, and her rounded tail exhibits a delicate shimmer. The lighting is natural and soft, with warm sunlight filtering through water and casting gentle reflections on her skin, emphasizing a serene yet curious atmosphere. In the distance, small boats float quietly, painted with muted, realistic colors and gentle details that suggest human presence without overpowering Luma’s prominence. The composition centers Luma in soft focus with a shallow depth of field that fades the boats and horizon subtly, enhancing her emotional state of excitement mixed with a flutter of worry. The ocean surface shimmers with gentle ripples and reflective highlights, echoing the soft textures of watercolor brushstrokes. Secondary marine creatures, like playful dolphins or curious sea turtles, appear nearby with dynamic poses and warm expressions, supporting a narrative of new discovery without detracting from Luma’s central role. Overall, the illustration conveys a quiet moment of wonder and gentle anticipation with age-appropriate clarity, emotional authenticity, and immersive environmental storytelling tailored to engage children aged 4-9."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/kangaroo/FmUkBi9qg83mjdlQZ4arN.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.1398606599541381
+          },
+          "seed": 1398785361,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly illustration using a soft watercolor style characterized by shimmering light rays and a gentle ocean glow, emphasizing soft textures and natural lighting with a gentle depth of field. The scene captures the tender moment where Luma the Gentle Whale meets Oscar the Seagull standing on a bobbing buoy. Luma, a large blue whale, is rendered with absolute consistency: smooth, shimmering skin in harmonious shades of deep sapphire and soft aqua, accented by subtle silver streaks along her curved fins and a softly rounded tail with a subtle shimmer. Her large expressive teal eyes flecked with silver sparkle like sunlight on water, conveying her signature friendly and cheerful smile with bright, inquisitive eyes that radiate kindness and wonder. A playful splash trail follows her movement, contributing to her soft radiant glow and gentle demeanor. Luma is centrally framed with close to medium perspective that showcases her size and majestic presence without overwhelming the composition. Oscar the Seagull appears dynamically atop the buoy, illustrated with naturalistic feather textures and engaging posture that shows him speaking to Luma, his expression curious and earnest. The buoy bobs gently among soft ocean waves rendered with translucent watercolor washes, reflecting the shimmering light rays above. The background conveys a peaceful coastal ocean setting under a soft, diffused sunlight that enhances the emotional tone of discovery and gentle revelation. The subtle interaction between Luma and Oscar visually conveys the narrative: Oscar telling Luma about the plastic bottle originating from humans. Spatial relationships highlight Luma's prominence while integrating Oscar naturally into the environment. Overall, the composition balances clarity for a young audience with photorealistic detail and watercolor softness, fostering emotional resonance through gentle natural lighting, authentic expressions, and environmental storytelling."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/zebra/3urV0KPFPrDcRW8DoJ_V3.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.14445634302683175
+          },
+          "seed": 2019606410,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly illustration for a children's picture book featuring Luma the Gentle Whale as the central character, ensuring absolute visual consistency with previous references. Luma is a large blue whale, with smooth, shimmering skin in deep sapphire and soft aqua hues, accented by subtle silver streaks along her curved fins. Her large, expressive teal eyes are flecked with silver, exuding a sparkling, inquisitive glow. She wears a friendly, cheerful smile radiating kindness and wonder. A playful splash trail gracefully follows her movement, and her rounded tail features a soft shimmer, all bathed in a gentle radiant glow that embodies her friendly demeanor.\n\nThe scene captures a determined Luma, her expression subtly shifted to convey quiet resolve without losing her trademark friendly warmth. Overhead, Oscar, a secondary character, is depicted mid-flight above the ocean surface, his presence highlighted by soft, natural light rays that create a gentle halo effect around him. This ethereal light subtly envelops Luma as well, emphasizing the emotional weight of the moment with evocative natural lighting. The composition frames Luma centrally, using a perspective that places the viewer just above water level and slightly to the front, capturing the curve of her smooth, shimmering skin and her expressive eyes.\n\nSecondary characters, including Oscar, interact naturally within the setting but remain visually distinct without detracting from Luma’s prominence. The background portrays a calm ocean environment under a softly glowing sky at dawn or dusk, utilizing watercolor textures blended with shimmering light rays and a gentle ocean glow that imbue the scene with warmth and introspection.\n\nThe depth of field is softly rendered to focus on Luma’s facial details and the light halo above, with subtle blurring of the distant ocean and sky to guide the viewer’s eye. Textures mimic delicate watercolor brush strokes combined with photorealistic detailing on the whale’s skin and light reflections on the water surface, delivering naturalistic yet magical visual storytelling.\n\nOverall, the illustration evokes the emotional tone: “Though Luma did not fully understand, she felt she needed to do something about it,” through precise facial micro-expressions, harmonious lighting, and layered composition that speak directly to young readers, maintaining clarity, emotional authenticity, and engaging narrative depth without compromising the consistent design integrity of the main character."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/rabbit/zD0pcCJqWck_gDVlQw_hD.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.1451795210596174
+          },
+          "seed": 1412000170,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly illustration in a soft watercolor style that combines subtle, shimmering light rays and a gentle ocean glow to illuminate an underwater scene. The central figure is Luma the Gentle Whale, depicted as an identical large blue whale with smooth, shimmering skin in rich shades of deep sapphire and soft aqua. Her curved fins bear delicate silver streaks, and her large, expressive teal eyes flecked with silver gaze forward with a friendly, cheerful smile radiating kindness and wonder. A playful splash trail follows her fluid, graceful movements as she embarks on a dive into the deep sea. Luma’s rounded tail shimmers softly, and she emits a faint, soft radiant glow enhancing her gentle demeanor. The camera angle is a slightly angled profile, mid-distance frame that emphasizes Luma’s elegant dive while keeping her as the clear central focus.\n\nSurrounding Luma are delighted sea creatures—colorful fish, curious seahorses, and a playful octopus—each portrayed with photorealistic details and dynamic, joyful poses as they watch Luma’s descent. These secondary characters occupy the midground and background naturally, with subtle motion conveying their excitement and amusement, and their warm, vibrant colors add depth and energy without detracting from Luma’s prominence.\n\nThe environment features softly blurred, gently undulating ocean plants and rocks in the background, bathed in the natural filtered light that penetrates downwards, creating layered depth and a quiet sense of wonder. The light rays shimmer through the water with delicate particle effects that shimmer subtly, enhancing the magical atmosphere. The overall composition balances calm, expansive underwater space with intimate focus on Luma’s emotional journey, expressed through her poised yet joyous pose and sparkling gaze.\n\nThe illustration employs soft textures and natural lighting with a gentle depth of field that draws the eye to Luma’s glowing figure, with muted tones blending seamlessly with vivid spots of marine life color. This creates a serene yet engaging visual narrative perfect for captivating children ages 4-9, evoking feelings of adventure, discovery, and kindness inherent to Luma’s gentle spirit."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/elephant/kleFU6qP1TTVqZDtPW0Sy.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.13987422408536077
+          },
+          "seed": 1927846735,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic illustration in a soft watercolor style with shimmering light rays filtering through the gentle ocean depths, bathing the scene in a warm, natural glow. Luma the Gentle Whale is centrally positioned, maintaining perfect consistency with her large, smooth sapphire-blue body shimmering gently with soft aqua hues and subtle silver streaks tracing her curved fins and rounded tail. Her large expressive teal eyes, flecked with silver, shine brightly with kindness and curiosity, paired with her signature friendly, cheerful smile that radiates warmth and wonder. A delicate, playful splash trail follows her subtle movement, softly glowing and harmonizing with the shimmering sunbeams. Nearby, Tito the Turtle swims close to Luma, his expression reflecting genuine concern as he gestures towards nearby sea anemones dotted with faintly visible, dangerous-looking plastic debris entwined among the vibrant underwater flora. The sea anemones are painted with soft, translucent strokes enhancing their delicate nature, surrounded by a calm underwater environment featuring gentle currents and subtle floating particles, enhancing the calming yet serious emotional tone. The perspective frames Luma slightly off-center to showcase her size and presence with Tito positioned midground, creating a natural spatial relationship that emphasizes their interaction. A gentle depth of field softly blurs the background coral reefs and seagrass, focusing attention on the emotional exchange between Luma and Tito. Overall, the composition, lighting, and painterly textures evoke a serene, heartfelt moment of friendship and concern beneath the ocean's shimmering surface, beautifully engaging young readers with clarity and emotional authenticity."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/tiger/qSX4HUEOUSVfmjjcxVNUk.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.14384714397601783
+          },
+          "seed": 1698283866,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly illustration in a soft watercolor style with elements of shimmering light rays and a gentle ocean glow. The scene centers on Luma the Gentle Whale, portrayed consistently with absolute adherence to her key features: large blue whale scale with smooth, shimmering skin in deep sapphire and soft aqua hues; subtle silver streaks along her curved fins; large, expressive teal eyes flecked with silver exhibiting a friendly and determined expression; a cheerful, gentle smile subtly modified into a look of quiet determination; a playful splash trail trailing her movement; and a soft radiant glow enveloping her body, emphasizing her empowered presence. Maintain her rounded tail with a subtle shimmer and friendly demeanor, capturing the exact size, proportion, and facial expression style established for her character across all scenes.\n\nLuma is placed centrally with a slight low-angle perspective that conveys her importance and empowerment, surrounded by softly glowing, shimmering ocean water rendered with delicate, translucent watercolor textures. Light filters through the water, creating natural dappled patterns and gentle depth of field that smoothly blur the more distant ocean background to keep focus firmly on Luma.\n\nAround Luma, include secondary ocean creatures — small schools of silver fish with vivacious movement, curious dolphins peeking playfully near her, and gentle sea turtles gliding nearby — their poses and expressions lively and varied but never detracting from Luma’s central focus. Their placement enhances a natural, thriving marine environment, symbolizing community and shared responsibility.\n\nThe lighting evokes a warm yet calm morning underwater ambiance, with shimmering shafts of sunlight penetrating the water surface, highlighting the soft silver streaks on Luma’s fins and the flecks in her teal eyes. This visual illumination conveys the realization moment and a sense of empowerment through symbolism of light and clarity.\n\nThe composition uses a balanced framing that draws the eye naturally to Luma’s engaged, compassionate gaze and determined smile, while the surrounding environment supports the emotional tone of newfound understanding and hope to protect the ocean home. The overall mood is uplifting and inviting for young readers, with an emphasis on gentle textures, authentic oceanic atmosphere, and emotionally resonant storytelling through visual cues."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/panda/USde3Njc1oEh4CYU1zGmX.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.13995938398875296
+          },
+          "seed": 1530287668,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly illustration in a soft watercolor style featuring Luma the Gentle Whale as the central figure. Luma is a large blue whale with smooth, shimmering skin painted in deep sapphire and soft aqua tones, accented by subtle silver streaks along her curved fins. Her large, expressive teal eyes sparkle with flecks of silver, radiating kindness and wonder, maintaining her signature friendly, cheerful smile. A playful splash trail follows her gentle movements. The image captures a tender moment at the ocean’s surface, where Luma is speaking to Oscar the Seagull perched nearby. Oscar’s design is light and naturalistic, with dynamic pose and curious expression, complementing Luma without overshadowing her. The ocean around them ripples with gentle waves under soft, natural lighting infused with shimmering light rays that create a gentle glow reflecting across the water. The scene is composed with a slightly low, intimate camera angle, focusing closely on Luma’s rounded tail and shimmering skin while softly fading the background waves in gentle depth of field. Soft textures emphasize the watercolor medium, blending seamlessly with natural ocean colors, evoking a calm and hopeful emotional tone that aligns with Luma’s decision to clean up their environment. The overall composition centers Luma perfectly to emphasize her warmth and leadership, inviting young viewers to connect with her friendly demeanor and the serene ocean landscape surrounding the interaction."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/lion/9MtsuDUOSXYzkxuPiqS9Z.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.14303900895174593
+          },
+          "seed": 1309428508,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic children's book illustration of Luma the Gentle Whale in a vibrant underwater and coastal setting, rendered in a soft watercolor style enriched with shimmering light rays and a gentle ocean glow. Luma is the central focus: a large blue whale with smooth, shimmering skin in deep sapphire and soft aqua hues, adorned with subtle silver streaks along her gracefully curved fins. Her large, expressive teal eyes—flecked delicately with silver—radiate kindness and wonder, paired with a friendly, cheerful smile that invites warmth. A playful splash trail follows her fluid movements, and her rounded tail shimmers softly, all consistently maintained exactly as described, preserving size, proportions, colors, signature features, and her characteristic expression.\n\nSurrounding Luma, Oscar the seagull passionately rallies a dynamic group of his fellow seagulls above the ocean surface, their feathers catching natural sunlight with delicate reflections. Below and around Luma, a diverse assembly of sea creatures—playful dolphins, curious sea turtles, shimmering schools of fish, and gentle rays—gather attentively, visibly responding to her leadership. The spatial relationships are carefully balanced to keep Luma prominently central, with Oscar near her, coordinating their efforts to convey a united concern and communal spirit.\n\nThe scene is composed with a natural perspective that gracefully transitions from shimmering ocean depths where Luma resides to the airy, sunlit coastal sky overhead, blending gentle blues and warm highlights. Soft textures and a subtle depth of field enhance emotional intimacy, focusing on the earnest expressions of Oscar and Luma, while secondary animals exhibit lively, varied poses and interactions that enrich the narrative moment. Natural lighting casts tender, diffused highlights and shadows, emphasizing the shimmer on Luma's skin and the glittering splash trails, evoking an atmosphere of hope, unity, and shared purpose that resonates warmly with young readers."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/tiger/NmQH36inVAWHHapgMegbO.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.14442683605011553
+          },
+          "seed": 466430907,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Craft a photorealistic illustration in a delicate watercolor style that seamlessly merges rich painterly textures with the soft translucency of shimmering light rays filtering through ocean water. Center the composition on Luma the Gentle Whale — a grand, serene blue whale rendered with exacting consistency: her smooth, deep sapphire and soft aqua skin gleams with a subtle radiant glow, silver streaks delicately highlight her curved fins, and her large, expressive teal eyes flecked with silver sparkle warmly beneath gently arched brows. Her friendly, cheerful smile exudes kindness and wonder, anchoring the scene’s emotional heart. A playful splash trail flows behind her, hinting at gentle movement without disturbing the calm atmosphere. Surrounding Luma, a cooperative gathering of diverse sea creatures—colorful fish, a curious octopus, and a pair of seagulls in mid-flight—are actively collecting scattered plastic debris from the ocean floor and water surface. Each animal's poses and facial expressions show teamwork and hopefulness, complementing Luma’s prominence without competing visually. The underwater environment is softly illuminated by dappled sunlight streaming down, casting gentle ocean glows that create natural depth of field, blurring distant background reef details while keeping Luma and her companions crisp and engaging. Subtle bubbles and floating fragments of cleaned plastic add narrative texture without clutter. From an eye-level, slightly wide-angle perspective, the scene invites young viewers into this vibrant underwater world full of cooperation and care. The natural light warms the cool palette, enhancing the emotional tone of unity and positive action. Every detail—from the shimmering tail’s rounded shimmer to the soft textures on Luma’s skin and the dynamic interplay of creatures—is composed to evoke hope and communal effort to safeguard their oceanic home, perfect for children ages 4 to 9."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/panda/cSO9xBMooXRJNmQqP8Nz1.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.139907652977854
+          },
+          "seed": 2037328212,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic illustration in a painterly watercolor style, capturing a serene ocean scene gradually clearing up with vibrantly rejuvenated colors. The central focus is Luma the Gentle Whale, depicted identically to her established design: a large blue whale with smooth, shimmering skin in deep sapphire and soft aqua tones, accented by subtle silver streaks along her gracefully curved fins. Her large, expressive teal eyes flecked with silver sparkle warmly, exuding her signature friendly, cheerful smile that radiates kindness and wonder. A playful splash trail follows her movement, with a soft radiant glow enveloping her presence, highlighting the smooth texture of her sapphire-blue skin and the delicate shimmer of her rounded tail.\n\nLuma is positioned mid-water, gently gliding with a calm, inquisitive gaze that reflects the hopeful transformation around her. Around her, the ocean water is clearer, infused with shimmering light rays penetrating from above, creating a gentle ocean glow that softens the scene's edges and adds depth through a subtle, naturalistic depth of field. The surrounding sea creatures, such as colorful fish and curious dolphins, appear lively and happy, swimming playfully in varied dynamic poses that suggest growing vitality and harmony. They interact naturally but never overshadow Luma's prominence, instead enhancing the uplifting narrative of renewal.\n\nThe composition uses a balanced mid-level perspective with soft textures and natural lighting that emphasize the emotional tone of restoration and positivity: \"With every object removed, their home started to look brighter and healthier.\" The scene's atmospheric clarity, coupled with gentle focus and shimmering light, invites young readers into the hopeful and rejuvenated ocean world, keeping Luma unmistakably consistent and central throughout."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/kangaroo/OrPLJXXJUTzkBL-rZHeYA.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.14520796190481633
+          },
+          "seed": 58125370,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly children's book illustration rendered in a soft watercolor and subtle oil texture style, capturing luminous shimmering light rays filtering through a gently glowing, cleaned ocean environment. Centered prominently in the composition is Luma the Gentle Whale, rendered with absolute fidelity to her defining design: a large blue whale featuring smooth, shimmering skin in harmonious shades of deep sapphire and soft aqua, accented by delicate silver streaks along her gently curved fins. Her rounded tail shimmers softly, radiating a soft, radiant glow that subtly illuminates the surrounding water. Luma's face carries her signature friendly, cheerful smile framed by large, expressive teal eyes flecked with silver that sparkle like sunlight dancing on water, exuding kindness and wonder. A playful splash trail follows her every movement, adding a sense of life and joyful motion without compromising her serene demeanor. Surrounding Luma, a variety of secondary ocean animal friends—such as curious dolphins playfully darting nearby and colorful fish forming a lively circle—are depicted with dynamic poses and varied expressions of delight and camaraderie. These animals are integrated naturally within the scene, their spatial relations reinforcing Luma's central importance without drawing attention away from her. The gentle ocean setting is bathed in soft, natural light with subtle depth of field to enhance focus on Luma and her joyful expression of glowing happiness. The clean, brighter sea environment features crystalline water textures with dappled light playing across gentle waves and coral formations that reinforce the uplifting mood. The composition employs a slightly low-angle perspective that conveys Luma’s grandeur and warmth, inviting the viewer into this intimate, emotionally resonant moment where she feels overwhelmed with happiness at the positive impact they all share. The overall visual tone ensures clarity, warmth, and an engaging storybook quality tailored to children aged 4-9, blending photorealistic detail with a gentle, heartwarming narrative presence."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/kangaroo/-gUccno-oBRE7G-LSQeXj.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.14247197494842112
+          },
+          "seed": 409571624,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly illustration in a soft watercolor style that captures the emotional warmth of Luma the Gentle Whale surrounded by all her new animal friends sharing a joyful moment. The image features Luma centrally positioned in gentle ocean waters, her large sapphire-blue smooth skin subtly shimmering with soft aqua hues and delicate silver streaks along her curved fins. Her expressive teal eyes, flecked with silver, sparkle with kindness and wonder under shimmering light rays penetrating the water’s surface, illuminating her friendly smile and the playful splash trail that follows her graceful movement, maintaining her exact consistent design with rounded, subtly shimmering tail and soft radiant glow.\n\nSurrounding Luma are secondary characters — vibrant sea creatures like curious turtles, cheerful dolphins, and colorful tropical fish — depicted with varied poses and expressions that convey camaraderie and happiness. These animals dynamically interact with Luma and each other in a natural oceanic setting filled with soft gradients of blues and greens, gentle ripples, and sunlit patches of seaweed in the background.\n\nThe composition uses a medium-wide perspective with a slightly low angle to emphasize Luma’s gentle majesty and central importance, while soft depth of field blurs the distant background just enough to keep emotional focus intimate. The watercolor textures convey softness, enhanced by the natural, diffused daylight softly glittering through the water, creating a tender, uplifting mood. The overall light is warm yet cool-toned, blending the gentle ocean glow with shimmering highlights that evoke a magical, peaceful atmosphere appropriate for young children’s visual engagement.\n\nThis illustration conveys the emotional narrative that through exploration and kindness, Luma has connected with new friends, reinforcing the themes of friendship and discovery with a clear, authentic visual storytelling style suited to children aged 4-9."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/elephant/nQoIJlCxGvBIriyaXO2o2.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.1461401180131361
+          },
+          "seed": 1235038614,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Create a photorealistic, painterly watercolor illustration depicting Luma the Gentle Whale and her friends underwater, gazing together towards a radiant horizon beneath the sea. Luma, a large blue whale with smooth, shimmering skin in deep sapphire and soft aqua, features subtle silver streaks along her curved fins and a rounded tail with a delicate shimmer. Her large expressive teal eyes, flecked with silver, hold a friendly, cheerful smile with bright, inquisitive eyes sparkling like sunlight on water, radiating kindness and wonder. A playful splash trail softly follows her graceful movement, emitting a soft radiant glow that gently illuminates her surroundings. She is positioned centrally and foremost, maintaining absolute consistency in size, proportions, colors, and signature features as previously established, ensuring her iconic friendly demeanor and gentle smile anchor the scene.\n\nSurrounding Luma are diverse secondary ocean friends—vibrant fish with shimmering scales, a curious playful octopus curling nearby, and a school of glowing jellyfish drifting peacefully—all arranged naturally to enhance the narrative of shared promise and friendship under the sea without overshadowing Luma’s prominence. They interact subtly with Luma, some facing the same horizon, others engaging gently with each other, conveying unity and environmental harmony.\n\nThe environment is bathed in a soft oceanic glow diffused through shimmering light rays that penetrate clear water, casting gentle, dappled illumination across the scene. Subtle watercolor textures enhance the fluidity of water while the realistic shading and soft depth of field focus the viewer’s eye on Luma and her friends, creating a tender, inviting atmosphere. The background features a softly lit underwater landscape with hints of coral reefs and swaying seaweed, reinforcing the theme of a healthy, vibrant ocean home.\n\nCompositionally, the perspective is slightly low and frontal to center Luma’s grandeur and warmth, evoking a sense of wonder and gentle leadership as she and her friends look toward the horizon—symbolizing their collective promise to protect their ocean. The lighting and color palette use harmonious shades of blue, aqua, and silver enriched with warm highlights to express optimism and the nurturing spirit of curiosity and respect for nature.\n\nThe overall emotional resonance is one of hopeful commitment and joyful companionship, captured through Luma’s steady gaze and slight uplift of her smile, alongside the gentle, attentive postures of her friends—all rendered in meticulous photorealistic detail with soft watercolor washes that delight and engage a young audience."
+        }
+      },
+      {
+        "json": {
+          "images": [
+            {
+              "url": "https://v3b.fal.media/files/b/koala/9BTFxTuNjHNgSr4LCCwpD.jpg",
+              "width": 1024,
+              "height": 768,
+              "content_type": "image/jpeg"
+            }
+          ],
+          "timings": {
+            "inference": 0.1423341151094064
+          },
+          "seed": 1553900745,
+          "has_nsfw_concepts": [
+            false
+          ],
+          "prompt": "Render a photorealistic children's book illustration of Luma the Gentle Whale, portrayed consistently as a large blue whale with smooth, shimmering skin in shades of deep sapphire and soft aqua, accented by subtle silver streaks along her curved fins and rounded tail which shimmers softly. Her large, expressive teal eyes flecked with silver gaze out with a friendly, cheerful smile that radiates kindness and wonder, maintaining her signature gentle, inquisitive expression and playful splash trail trailing gracefully behind her. Luma is centered prominently in a serene underwater scene bathed in soft watercolor textures and painterly strokes, suffused with shimmering light rays filtering through the gentle ocean glow above, creating a tender, magical ambiance befitting the story's closing moment \"The End.\" The environment is a calm, clear oceanic expanse with hints of delicate coral and dappled sandy seabed below, subtly framing Luma without detracting attention. Secondary characters—small, joyful sea creatures like curious colorful fish and a friendly sea turtle—interact nearby, their varied expressions and dynamic poses reflecting discovery, friendship, and care, complementing Luma's presence while keeping her the visual and narrative focal point. The composition employs a moderate depth of field to softly blur distant backgrounds, enhancing the intimate focus on Luma and her companions. Natural lighting is diffused and warm, enhancing the watercolor medium's soft textures and the scene’s emotional warmth, inviting young readers to reflect on curiosity, kindness, and environmental harmony through this peaceful final illustration."
+        }
+      }
+    ],
+    "Append row in sheet": [
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/lion/WuD052wqWYb7HowrjxVQR.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/penguin/kiMDBCi0yeRG7R03srNt5.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/elephant/g5tg_td_vzZZqqCC6Sp3Y.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/panda/UQiqKfCUQawXsfoOD71Rf.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/kangaroo/_OEaZQ2_jAiVB18arY2x7.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/penguin/m9PU0pqleDJHoaMvpYAhP.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/monkey/K2W_JG3GkkxTh5CLeUd30.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/kangaroo/FmUkBi9qg83mjdlQZ4arN.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/zebra/3urV0KPFPrDcRW8DoJ_V3.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/rabbit/zD0pcCJqWck_gDVlQw_hD.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/elephant/kleFU6qP1TTVqZDtPW0Sy.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/tiger/qSX4HUEOUSVfmjjcxVNUk.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/panda/USde3Njc1oEh4CYU1zGmX.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/lion/9MtsuDUOSXYzkxuPiqS9Z.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/tiger/NmQH36inVAWHHapgMegbO.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/panda/cSO9xBMooXRJNmQqP8Nz1.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/kangaroo/OrPLJXXJUTzkBL-rZHeYA.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/kangaroo/-gUccno-oBRE7G-LSQeXj.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/elephant/nQoIJlCxGvBIriyaXO2o2.jpg",
+          "STATUS": "PENDING"
+        }
+      },
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/koala/9BTFxTuNjHNgSr4LCCwpD.jpg",
+          "STATUS": "PENDING"
+        }
+      }
+    ],
+    "AI Agent": [
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic children's book cover featuring Luma the Gentle Whale as the central figure, rendered in a soft watercolor style enhanced with shimmering light rays and a gentle ocean glow that evoke warmth and wonder. Luma is a large blue whale with smooth, shimmering skin in gradations of deep sapphire and soft aqua, marked by subtle silver streaks along her elegantly curved fins and a rounded tail with a delicate shimmer. Her large, expressive teal eyes flecked with silver sparkle like sunlight on water, paired with a friendly, cheerful smile that radiates kindness and curiosity. A playful splash trail follows her graceful movement, glowing softly to emphasize her gentle spirit. The composition places Luma prominently in the foreground, positioned mid-swim with a poised, inquisitive expression as if inviting the viewer to join in her ocean explorations. Around her, a diverse array of secondary ocean creatures — such as curious dolphins, vibrant tropical fish, and playful sea turtles — interact dynamically, their lively poses reinforcing themes of friendship and environmental harmony without detracting from Luma's prominence. The underwater setting is richly detailed with softly swaying kelp forests, colorful coral reefs, and beams of natural sunlight filtering through the water's surface, creating a layered depth that adds immersive realism while maintaining a soft focus and painterly texture. The lighting gently caresses Luma's form, highlighting the silver flecks and radiant skin tones with warm, natural illumination that accentuates the ocean's gentle atmosphere. Framing and perspective center Luma perfectly with a subtle wide-angle view that captures expansive ocean space, fostering a sense of curious exploration and responsible stewardship. Overall, the image blends photorealistic textures with a tender watercolor finish, supporting emotional warmth and authenticity appropriate for children ages 4 to 9, clearly communicating Luma's story theme of curiosity, friendship, and ocean guardianship while preserving absolute consistency in Luma’s defining features and expression throughout."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic children's book illustration of Luma the Gentle Whale swimming joyfully amidst vibrant coral reefs beneath the ocean surface. Render Luma as a large, smooth sapphire-blue whale with shimmering skin in deep sapphire and soft aqua hues, accented by delicate silver streaks along her curved fins and a playful splash trailing behind her. Her large expressive teal eyes, speckled with silver flecks, hold a friendly, cheerful smile that radiates kindness and wonder, consistently preserving her characteristic rounded tail with subtle shimmer and soft radiant glow. The composition centers on Luma in mid-swim, framed by softly focused, colorful coral reefs bustling gently with small, lively fish and other sea creatures that interact naturally within the scene, without detracting from Luma’s prominence. Light rays shimmer realistically through the ocean water from above, casting a gentle, diffused glow that bathes the entire scene in warmth and clarity, with soft watercolor textures blending seamlessly into a painterly style, emphasizing a tender oceanic atmosphere. The perspective is slightly elevated and wide enough to capture both Luma’s graceful movement and the rich, lively underwater environment, using a gentle depth of field to keep Luma sharply focused while the background fades subtly, inviting young readers to feel the peaceful joy of Luma’s underwater world."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly illustration rendered in soft watercolor, capturing a gentle ocean scene bathed in shimmering light rays that filter softly through the calm water, evoking a tender and curious mood. At the center, Luma the Gentle Whale, large and majestic, is depicted with unwavering consistency: her smooth, shimmering sapphire-blue skin carries subtle silver streaks along her gracefully curved fins, and her large teal eyes flecked with silver shine with innocent curiosity. Her friendly, cheerful smile and expressive eyes radiate kindness and wonder, while a delicate playful splash trail follows her fluid movement. Luma's rounded tail with a subtle shimmer rests gently in the soft ocean glow, maintaining her characteristic soft radiant glow and warm demeanor. Luma leans her massive head gently toward a floating plastic bottle drifting nearby, her eyes wide and attentive, conveying the moment of discovery and intrigue. The bottle is detailed but not detracting, bobbing softly on the water surface, symbolizing something unusual within Luma’s familiar world. Surrounding her, a few small, curious fish and perhaps a sea turtle glance toward the bottle, their expressions and positions naturally woven into the composition to enhance the storytelling without overshadowing Luma. The ocean environment features gentle rippling water textured with delicate watercolor washes and subtle gradients, creating depth and space that emphasize Luma’s size and presence. Sunlight streams down in warm, diffused beams, casting natural highlights and delicate shadows that sculpt the scene dynamically but softly. The composition frames Luma as the unequivocal focal point, using a mid-range perspective that captures her full body and face clearly, with a shallow depth of field that subtly blurs the background elements to draw attention to her emotional connection with the bottle. This scene should evoke calm wonder and gentle concern, inviting children into Luma’s thoughtful world, blending photorealistic detail with the softness and warmth of a watercolor painting to engage young readers authentically."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly illustration in a soft watercolor style showcasing Luma the Gentle Whale as the central focus. Luma is depicted as a large blue whale with smooth, shimmering skin in deep sapphire and soft aqua hues. Her fins display subtle silver streaks, and her large teal eyes, flecked with silver, shine warmly with a playful sparkle. Her friendly, cheerful smile is gentle and inviting, encapsulating kindness and wonder. A playful splash trail subtly follows her graceful movement, while a soft, radiant glow envelops her rounded tail with its subtle shimmer. She swims cautiously around an unfamiliar object, which appears slightly mysterious yet organically part of the underwater environment, emphasizing that she has never encountered anything like it before, evoking curiosity with a hint of oddity.\n\nThe surrounding ocean background glows with a gentle oceanic luminescence that suffuses the watercolor textures, with shimmering light rays filtering softly through the water, creating delicate highlights on Luma's skin and casting a serene ambiance. Depth of field is subtly applied to keep Luma sharply in focus, while the background gently blurs into a natural aquatic haze, supporting a calm and introspective mood.\n\nSecondary marine animals, rendered with realistic but complementary detail in varied dynamic poses, interact subtly at a respectful distance—curious fish or graceful sea turtles—without detracting from Luma’s prominence. The ocean floor and floating sea plants contribute to the composition, narratively framing the scene and reinforcing the exploratory tone.\n\nThe viewpoint is a slightly elevated, mid-range cinematic angle granting a balanced perspective that captures Luma’s full form alongside the unfamiliar object, inviting young readers into an engaging, emotional exploration. Lighting and color choices sustain a harmonious play between soft blues and shimmering silvers, enhancing the watercolor medium's tender texture and depth.\n\nThis artwork invites children aged 4-9 into a gentle, curious moment underwater, conveying Luma’s wonder and slight puzzlement in discovering something new, while faithfully maintaining her signature look and warm, friendly demeanor consistent across the story."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic children's book illustration in a soft watercolor style that captures an emotionally warm and inquisitive moment. The central focus is Luma the Gentle Whale—a large whale rendered with smooth, shimmering skin in vibrant deep sapphire and soft aqua tones, accented by subtle silver streaks along her gracefully curved fins. Her large, expressive teal eyes, flecked with silver, sparkle with curiosity and kindness. She wears a friendly, cheerful smile that radiates wonder, perfectly capturing her gentle nature. A playful splash trail follows her as she sets off toward the water's surface, conveying her eagerness to explore. Luma’s form is consistently proportioned, with a rounded tail featuring a soft shimmer and a subtle radiant glow enveloping her, maintaining absolute fidelity to the established character design across all scenes.\n\nSurrounding Luma, a few lively sea creatures—small, colorful fish and playful sea turtles—move naturally around her, their varied dynamic poses and animated expressions contributing to a sense of community and wonder without detracting from Luma’s central prominence. The underwater environment bathes in gentle ocean glow, infused with softly shimmering light rays filtering down from the surface above, creating a tranquil, filtered ambiance that invites young readers to immerse in the scene. The water's subtle textures shimmer gently, enhancing the naturalistic feel while retaining the softness of watercolor brushstrokes.\n\nThe composition is cinematic and engaging: a slightly low angle looking up toward the surface emphasizes Luma’s ascent and curiosity. Depth of field softly blurs the distant ocean background to enhance focus on Luma’s detailed features and movement. Warm, natural lighting highlights the interplay of light on Luma’s sleek skin and the surrounding water, reinforcing a tender, hopeful mood. Overall, the scene evokes feelings of gentle adventure, kindness, and discovery, inviting children ages 4 to 9 to engage deeply with Luma’s journey."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly illustration in a soft watercolor style with shimmering light rays filtering gently through the ocean surface. The scene depicts Luma the Gentle Whale as she rises gracefully to the water's surface, her large deep sapphire-blue body gleaming with smooth, shimmering skin accented by subtle silver streaks along her curved fins. Her large teal eyes, flecked with silver, hold a familiar friendly, cheerful smile and inquisitive sparkle like sunlight dancing on water — a radiant expression of kindness and wonder. A playful splash trail follows her serene movement, and her rounded tail shimmers softly beneath the gentle ocean glow. The lighting is natural and warm, casting a soft radiant glow on Luma that enhances her ethereal presence without altering her consistent appearance, proportions, or signature features.\n\nThe ocean surface is calm and expansive, merging seamlessly with a watercolor sky painted in delicate washes of soft pastels—pinks, light blues, and creams—with fluffy clouds diffusing subtle ambient light above. Secondary characters such as a curious sea turtle and a school of vibrant small fish swim nearby, their dynamic poses and curious gazes directed toward Luma, reflecting an atmosphere of peaceful discovery. These additional characters occupy spatial relationships that emphasize Luma’s central position and gentle ascent, enriching the narrative without detracting from her prominence.\n\nThe composition uses a slightly low-angle perspective to accentuate Luma’s majestic rise, with a shallow depth of field softly blurring distant background elements to keep focus tightly on her expressive face and elegant form. The scene’s soft textures and glowing light rays create a tender, contemplative mood embodying the emotional tone of a rarely visited surface world, inviting young viewers to share in Luma’s wonder and gentle courage as she embarks on this new experience."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly children's book illustration in a soft watercolor style with shimmering light rays and a gentle ocean glow. The scene captures Luma the Gentle Whale from an above-water perspective, gently surfacing amidst a calm sea. Luma is depicted with absolute consistency: her large, smooth, shimmering skin showcases deep sapphire and soft aqua tones with subtle silver streaks along her curved fins. Her large expressive teal eyes, flecked with silver, sparkle brightly, accompanied by a friendly, cheerful smile radiating kindness and wonder. A playful splash trail follows her graceful movement, and her rounded tail exhibits a delicate shimmer. The lighting is natural and soft, with warm sunlight filtering through water and casting gentle reflections on her skin, emphasizing a serene yet curious atmosphere. In the distance, small boats float quietly, painted with muted, realistic colors and gentle details that suggest human presence without overpowering Luma’s prominence. The composition centers Luma in soft focus with a shallow depth of field that fades the boats and horizon subtly, enhancing her emotional state of excitement mixed with a flutter of worry. The ocean surface shimmers with gentle ripples and reflective highlights, echoing the soft textures of watercolor brushstrokes. Secondary marine creatures, like playful dolphins or curious sea turtles, appear nearby with dynamic poses and warm expressions, supporting a narrative of new discovery without detracting from Luma’s central role. Overall, the illustration conveys a quiet moment of wonder and gentle anticipation with age-appropriate clarity, emotional authenticity, and immersive environmental storytelling tailored to engage children aged 4-9."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly illustration using a soft watercolor style characterized by shimmering light rays and a gentle ocean glow, emphasizing soft textures and natural lighting with a gentle depth of field. The scene captures the tender moment where Luma the Gentle Whale meets Oscar the Seagull standing on a bobbing buoy. Luma, a large blue whale, is rendered with absolute consistency: smooth, shimmering skin in harmonious shades of deep sapphire and soft aqua, accented by subtle silver streaks along her curved fins and a softly rounded tail with a subtle shimmer. Her large expressive teal eyes flecked with silver sparkle like sunlight on water, conveying her signature friendly and cheerful smile with bright, inquisitive eyes that radiate kindness and wonder. A playful splash trail follows her movement, contributing to her soft radiant glow and gentle demeanor. Luma is centrally framed with close to medium perspective that showcases her size and majestic presence without overwhelming the composition. Oscar the Seagull appears dynamically atop the buoy, illustrated with naturalistic feather textures and engaging posture that shows him speaking to Luma, his expression curious and earnest. The buoy bobs gently among soft ocean waves rendered with translucent watercolor washes, reflecting the shimmering light rays above. The background conveys a peaceful coastal ocean setting under a soft, diffused sunlight that enhances the emotional tone of discovery and gentle revelation. The subtle interaction between Luma and Oscar visually conveys the narrative: Oscar telling Luma about the plastic bottle originating from humans. Spatial relationships highlight Luma's prominence while integrating Oscar naturally into the environment. Overall, the composition balances clarity for a young audience with photorealistic detail and watercolor softness, fostering emotional resonance through gentle natural lighting, authentic expressions, and environmental storytelling."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly illustration for a children's picture book featuring Luma the Gentle Whale as the central character, ensuring absolute visual consistency with previous references. Luma is a large blue whale, with smooth, shimmering skin in deep sapphire and soft aqua hues, accented by subtle silver streaks along her curved fins. Her large, expressive teal eyes are flecked with silver, exuding a sparkling, inquisitive glow. She wears a friendly, cheerful smile radiating kindness and wonder. A playful splash trail gracefully follows her movement, and her rounded tail features a soft shimmer, all bathed in a gentle radiant glow that embodies her friendly demeanor.\n\nThe scene captures a determined Luma, her expression subtly shifted to convey quiet resolve without losing her trademark friendly warmth. Overhead, Oscar, a secondary character, is depicted mid-flight above the ocean surface, his presence highlighted by soft, natural light rays that create a gentle halo effect around him. This ethereal light subtly envelops Luma as well, emphasizing the emotional weight of the moment with evocative natural lighting. The composition frames Luma centrally, using a perspective that places the viewer just above water level and slightly to the front, capturing the curve of her smooth, shimmering skin and her expressive eyes.\n\nSecondary characters, including Oscar, interact naturally within the setting but remain visually distinct without detracting from Luma’s prominence. The background portrays a calm ocean environment under a softly glowing sky at dawn or dusk, utilizing watercolor textures blended with shimmering light rays and a gentle ocean glow that imbue the scene with warmth and introspection.\n\nThe depth of field is softly rendered to focus on Luma’s facial details and the light halo above, with subtle blurring of the distant ocean and sky to guide the viewer’s eye. Textures mimic delicate watercolor brush strokes combined with photorealistic detailing on the whale’s skin and light reflections on the water surface, delivering naturalistic yet magical visual storytelling.\n\nOverall, the illustration evokes the emotional tone: “Though Luma did not fully understand, she felt she needed to do something about it,” through precise facial micro-expressions, harmonious lighting, and layered composition that speak directly to young readers, maintaining clarity, emotional authenticity, and engaging narrative depth without compromising the consistent design integrity of the main character."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly illustration in a soft watercolor style that combines subtle, shimmering light rays and a gentle ocean glow to illuminate an underwater scene. The central figure is Luma the Gentle Whale, depicted as an identical large blue whale with smooth, shimmering skin in rich shades of deep sapphire and soft aqua. Her curved fins bear delicate silver streaks, and her large, expressive teal eyes flecked with silver gaze forward with a friendly, cheerful smile radiating kindness and wonder. A playful splash trail follows her fluid, graceful movements as she embarks on a dive into the deep sea. Luma’s rounded tail shimmers softly, and she emits a faint, soft radiant glow enhancing her gentle demeanor. The camera angle is a slightly angled profile, mid-distance frame that emphasizes Luma’s elegant dive while keeping her as the clear central focus.\n\nSurrounding Luma are delighted sea creatures—colorful fish, curious seahorses, and a playful octopus—each portrayed with photorealistic details and dynamic, joyful poses as they watch Luma’s descent. These secondary characters occupy the midground and background naturally, with subtle motion conveying their excitement and amusement, and their warm, vibrant colors add depth and energy without detracting from Luma’s prominence.\n\nThe environment features softly blurred, gently undulating ocean plants and rocks in the background, bathed in the natural filtered light that penetrates downwards, creating layered depth and a quiet sense of wonder. The light rays shimmer through the water with delicate particle effects that shimmer subtly, enhancing the magical atmosphere. The overall composition balances calm, expansive underwater space with intimate focus on Luma’s emotional journey, expressed through her poised yet joyous pose and sparkling gaze.\n\nThe illustration employs soft textures and natural lighting with a gentle depth of field that draws the eye to Luma’s glowing figure, with muted tones blending seamlessly with vivid spots of marine life color. This creates a serene yet engaging visual narrative perfect for captivating children ages 4-9, evoking feelings of adventure, discovery, and kindness inherent to Luma’s gentle spirit."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic illustration in a soft watercolor style with shimmering light rays filtering through the gentle ocean depths, bathing the scene in a warm, natural glow. Luma the Gentle Whale is centrally positioned, maintaining perfect consistency with her large, smooth sapphire-blue body shimmering gently with soft aqua hues and subtle silver streaks tracing her curved fins and rounded tail. Her large expressive teal eyes, flecked with silver, shine brightly with kindness and curiosity, paired with her signature friendly, cheerful smile that radiates warmth and wonder. A delicate, playful splash trail follows her subtle movement, softly glowing and harmonizing with the shimmering sunbeams. Nearby, Tito the Turtle swims close to Luma, his expression reflecting genuine concern as he gestures towards nearby sea anemones dotted with faintly visible, dangerous-looking plastic debris entwined among the vibrant underwater flora. The sea anemones are painted with soft, translucent strokes enhancing their delicate nature, surrounded by a calm underwater environment featuring gentle currents and subtle floating particles, enhancing the calming yet serious emotional tone. The perspective frames Luma slightly off-center to showcase her size and presence with Tito positioned midground, creating a natural spatial relationship that emphasizes their interaction. A gentle depth of field softly blurs the background coral reefs and seagrass, focusing attention on the emotional exchange between Luma and Tito. Overall, the composition, lighting, and painterly textures evoke a serene, heartfelt moment of friendship and concern beneath the ocean's shimmering surface, beautifully engaging young readers with clarity and emotional authenticity."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly illustration in a soft watercolor style with elements of shimmering light rays and a gentle ocean glow. The scene centers on Luma the Gentle Whale, portrayed consistently with absolute adherence to her key features: large blue whale scale with smooth, shimmering skin in deep sapphire and soft aqua hues; subtle silver streaks along her curved fins; large, expressive teal eyes flecked with silver exhibiting a friendly and determined expression; a cheerful, gentle smile subtly modified into a look of quiet determination; a playful splash trail trailing her movement; and a soft radiant glow enveloping her body, emphasizing her empowered presence. Maintain her rounded tail with a subtle shimmer and friendly demeanor, capturing the exact size, proportion, and facial expression style established for her character across all scenes.\n\nLuma is placed centrally with a slight low-angle perspective that conveys her importance and empowerment, surrounded by softly glowing, shimmering ocean water rendered with delicate, translucent watercolor textures. Light filters through the water, creating natural dappled patterns and gentle depth of field that smoothly blur the more distant ocean background to keep focus firmly on Luma.\n\nAround Luma, include secondary ocean creatures — small schools of silver fish with vivacious movement, curious dolphins peeking playfully near her, and gentle sea turtles gliding nearby — their poses and expressions lively and varied but never detracting from Luma’s central focus. Their placement enhances a natural, thriving marine environment, symbolizing community and shared responsibility.\n\nThe lighting evokes a warm yet calm morning underwater ambiance, with shimmering shafts of sunlight penetrating the water surface, highlighting the soft silver streaks on Luma’s fins and the flecks in her teal eyes. This visual illumination conveys the realization moment and a sense of empowerment through symbolism of light and clarity.\n\nThe composition uses a balanced framing that draws the eye naturally to Luma’s engaged, compassionate gaze and determined smile, while the surrounding environment supports the emotional tone of newfound understanding and hope to protect the ocean home. The overall mood is uplifting and inviting for young readers, with an emphasis on gentle textures, authentic oceanic atmosphere, and emotionally resonant storytelling through visual cues."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly illustration in a soft watercolor style featuring Luma the Gentle Whale as the central figure. Luma is a large blue whale with smooth, shimmering skin painted in deep sapphire and soft aqua tones, accented by subtle silver streaks along her curved fins. Her large, expressive teal eyes sparkle with flecks of silver, radiating kindness and wonder, maintaining her signature friendly, cheerful smile. A playful splash trail follows her gentle movements. The image captures a tender moment at the ocean’s surface, where Luma is speaking to Oscar the Seagull perched nearby. Oscar’s design is light and naturalistic, with dynamic pose and curious expression, complementing Luma without overshadowing her. The ocean around them ripples with gentle waves under soft, natural lighting infused with shimmering light rays that create a gentle glow reflecting across the water. The scene is composed with a slightly low, intimate camera angle, focusing closely on Luma’s rounded tail and shimmering skin while softly fading the background waves in gentle depth of field. Soft textures emphasize the watercolor medium, blending seamlessly with natural ocean colors, evoking a calm and hopeful emotional tone that aligns with Luma’s decision to clean up their environment. The overall composition centers Luma perfectly to emphasize her warmth and leadership, inviting young viewers to connect with her friendly demeanor and the serene ocean landscape surrounding the interaction."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic children's book illustration of Luma the Gentle Whale in a vibrant underwater and coastal setting, rendered in a soft watercolor style enriched with shimmering light rays and a gentle ocean glow. Luma is the central focus: a large blue whale with smooth, shimmering skin in deep sapphire and soft aqua hues, adorned with subtle silver streaks along her gracefully curved fins. Her large, expressive teal eyes—flecked delicately with silver—radiate kindness and wonder, paired with a friendly, cheerful smile that invites warmth. A playful splash trail follows her fluid movements, and her rounded tail shimmers softly, all consistently maintained exactly as described, preserving size, proportions, colors, signature features, and her characteristic expression.\n\nSurrounding Luma, Oscar the seagull passionately rallies a dynamic group of his fellow seagulls above the ocean surface, their feathers catching natural sunlight with delicate reflections. Below and around Luma, a diverse assembly of sea creatures—playful dolphins, curious sea turtles, shimmering schools of fish, and gentle rays—gather attentively, visibly responding to her leadership. The spatial relationships are carefully balanced to keep Luma prominently central, with Oscar near her, coordinating their efforts to convey a united concern and communal spirit.\n\nThe scene is composed with a natural perspective that gracefully transitions from shimmering ocean depths where Luma resides to the airy, sunlit coastal sky overhead, blending gentle blues and warm highlights. Soft textures and a subtle depth of field enhance emotional intimacy, focusing on the earnest expressions of Oscar and Luma, while secondary animals exhibit lively, varied poses and interactions that enrich the narrative moment. Natural lighting casts tender, diffused highlights and shadows, emphasizing the shimmer on Luma's skin and the glittering splash trails, evoking an atmosphere of hope, unity, and shared purpose that resonates warmly with young readers."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Craft a photorealistic illustration in a delicate watercolor style that seamlessly merges rich painterly textures with the soft translucency of shimmering light rays filtering through ocean water. Center the composition on Luma the Gentle Whale — a grand, serene blue whale rendered with exacting consistency: her smooth, deep sapphire and soft aqua skin gleams with a subtle radiant glow, silver streaks delicately highlight her curved fins, and her large, expressive teal eyes flecked with silver sparkle warmly beneath gently arched brows. Her friendly, cheerful smile exudes kindness and wonder, anchoring the scene’s emotional heart. A playful splash trail flows behind her, hinting at gentle movement without disturbing the calm atmosphere. Surrounding Luma, a cooperative gathering of diverse sea creatures—colorful fish, a curious octopus, and a pair of seagulls in mid-flight—are actively collecting scattered plastic debris from the ocean floor and water surface. Each animal's poses and facial expressions show teamwork and hopefulness, complementing Luma’s prominence without competing visually. The underwater environment is softly illuminated by dappled sunlight streaming down, casting gentle ocean glows that create natural depth of field, blurring distant background reef details while keeping Luma and her companions crisp and engaging. Subtle bubbles and floating fragments of cleaned plastic add narrative texture without clutter. From an eye-level, slightly wide-angle perspective, the scene invites young viewers into this vibrant underwater world full of cooperation and care. The natural light warms the cool palette, enhancing the emotional tone of unity and positive action. Every detail—from the shimmering tail’s rounded shimmer to the soft textures on Luma’s skin and the dynamic interplay of creatures—is composed to evoke hope and communal effort to safeguard their oceanic home, perfect for children ages 4 to 9."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic illustration in a painterly watercolor style, capturing a serene ocean scene gradually clearing up with vibrantly rejuvenated colors. The central focus is Luma the Gentle Whale, depicted identically to her established design: a large blue whale with smooth, shimmering skin in deep sapphire and soft aqua tones, accented by subtle silver streaks along her gracefully curved fins. Her large, expressive teal eyes flecked with silver sparkle warmly, exuding her signature friendly, cheerful smile that radiates kindness and wonder. A playful splash trail follows her movement, with a soft radiant glow enveloping her presence, highlighting the smooth texture of her sapphire-blue skin and the delicate shimmer of her rounded tail.\n\nLuma is positioned mid-water, gently gliding with a calm, inquisitive gaze that reflects the hopeful transformation around her. Around her, the ocean water is clearer, infused with shimmering light rays penetrating from above, creating a gentle ocean glow that softens the scene's edges and adds depth through a subtle, naturalistic depth of field. The surrounding sea creatures, such as colorful fish and curious dolphins, appear lively and happy, swimming playfully in varied dynamic poses that suggest growing vitality and harmony. They interact naturally but never overshadow Luma's prominence, instead enhancing the uplifting narrative of renewal.\n\nThe composition uses a balanced mid-level perspective with soft textures and natural lighting that emphasize the emotional tone of restoration and positivity: \"With every object removed, their home started to look brighter and healthier.\" The scene's atmospheric clarity, coupled with gentle focus and shimmering light, invites young readers into the hopeful and rejuvenated ocean world, keeping Luma unmistakably consistent and central throughout."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly children's book illustration rendered in a soft watercolor and subtle oil texture style, capturing luminous shimmering light rays filtering through a gently glowing, cleaned ocean environment. Centered prominently in the composition is Luma the Gentle Whale, rendered with absolute fidelity to her defining design: a large blue whale featuring smooth, shimmering skin in harmonious shades of deep sapphire and soft aqua, accented by delicate silver streaks along her gently curved fins. Her rounded tail shimmers softly, radiating a soft, radiant glow that subtly illuminates the surrounding water. Luma's face carries her signature friendly, cheerful smile framed by large, expressive teal eyes flecked with silver that sparkle like sunlight dancing on water, exuding kindness and wonder. A playful splash trail follows her every movement, adding a sense of life and joyful motion without compromising her serene demeanor. Surrounding Luma, a variety of secondary ocean animal friends—such as curious dolphins playfully darting nearby and colorful fish forming a lively circle—are depicted with dynamic poses and varied expressions of delight and camaraderie. These animals are integrated naturally within the scene, their spatial relations reinforcing Luma's central importance without drawing attention away from her. The gentle ocean setting is bathed in soft, natural light with subtle depth of field to enhance focus on Luma and her joyful expression of glowing happiness. The clean, brighter sea environment features crystalline water textures with dappled light playing across gentle waves and coral formations that reinforce the uplifting mood. The composition employs a slightly low-angle perspective that conveys Luma’s grandeur and warmth, inviting the viewer into this intimate, emotionally resonant moment where she feels overwhelmed with happiness at the positive impact they all share. The overall visual tone ensures clarity, warmth, and an engaging storybook quality tailored to children aged 4-9, blending photorealistic detail with a gentle, heartwarming narrative presence."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly illustration in a soft watercolor style that captures the emotional warmth of Luma the Gentle Whale surrounded by all her new animal friends sharing a joyful moment. The image features Luma centrally positioned in gentle ocean waters, her large sapphire-blue smooth skin subtly shimmering with soft aqua hues and delicate silver streaks along her curved fins. Her expressive teal eyes, flecked with silver, sparkle with kindness and wonder under shimmering light rays penetrating the water’s surface, illuminating her friendly smile and the playful splash trail that follows her graceful movement, maintaining her exact consistent design with rounded, subtly shimmering tail and soft radiant glow.\n\nSurrounding Luma are secondary characters — vibrant sea creatures like curious turtles, cheerful dolphins, and colorful tropical fish — depicted with varied poses and expressions that convey camaraderie and happiness. These animals dynamically interact with Luma and each other in a natural oceanic setting filled with soft gradients of blues and greens, gentle ripples, and sunlit patches of seaweed in the background.\n\nThe composition uses a medium-wide perspective with a slightly low angle to emphasize Luma’s gentle majesty and central importance, while soft depth of field blurs the distant background just enough to keep emotional focus intimate. The watercolor textures convey softness, enhanced by the natural, diffused daylight softly glittering through the water, creating a tender, uplifting mood. The overall light is warm yet cool-toned, blending the gentle ocean glow with shimmering highlights that evoke a magical, peaceful atmosphere appropriate for young children’s visual engagement.\n\nThis illustration conveys the emotional narrative that through exploration and kindness, Luma has connected with new friends, reinforcing the themes of friendship and discovery with a clear, authentic visual storytelling style suited to children aged 4-9."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Create a photorealistic, painterly watercolor illustration depicting Luma the Gentle Whale and her friends underwater, gazing together towards a radiant horizon beneath the sea. Luma, a large blue whale with smooth, shimmering skin in deep sapphire and soft aqua, features subtle silver streaks along her curved fins and a rounded tail with a delicate shimmer. Her large expressive teal eyes, flecked with silver, hold a friendly, cheerful smile with bright, inquisitive eyes sparkling like sunlight on water, radiating kindness and wonder. A playful splash trail softly follows her graceful movement, emitting a soft radiant glow that gently illuminates her surroundings. She is positioned centrally and foremost, maintaining absolute consistency in size, proportions, colors, and signature features as previously established, ensuring her iconic friendly demeanor and gentle smile anchor the scene.\n\nSurrounding Luma are diverse secondary ocean friends—vibrant fish with shimmering scales, a curious playful octopus curling nearby, and a school of glowing jellyfish drifting peacefully—all arranged naturally to enhance the narrative of shared promise and friendship under the sea without overshadowing Luma’s prominence. They interact subtly with Luma, some facing the same horizon, others engaging gently with each other, conveying unity and environmental harmony.\n\nThe environment is bathed in a soft oceanic glow diffused through shimmering light rays that penetrate clear water, casting gentle, dappled illumination across the scene. Subtle watercolor textures enhance the fluidity of water while the realistic shading and soft depth of field focus the viewer’s eye on Luma and her friends, creating a tender, inviting atmosphere. The background features a softly lit underwater landscape with hints of coral reefs and swaying seaweed, reinforcing the theme of a healthy, vibrant ocean home.\n\nCompositionally, the perspective is slightly low and frontal to center Luma’s grandeur and warmth, evoking a sense of wonder and gentle leadership as she and her friends look toward the horizon—symbolizing their collective promise to protect their ocean. The lighting and color palette use harmonious shades of blue, aqua, and silver enriched with warm highlights to express optimism and the nurturing spirit of curiosity and respect for nature.\n\nThe overall emotional resonance is one of hopeful commitment and joyful companionship, captured through Luma’s steady gaze and slight uplift of her smile, alongside the gentle, attentive postures of her friends—all rendered in meticulous photorealistic detail with soft watercolor washes that delight and engage a young audience."
+          }
+        }
+      },
+      {
+        "json": {
+          "output": {
+            "image_prompt": "Render a photorealistic children's book illustration of Luma the Gentle Whale, portrayed consistently as a large blue whale with smooth, shimmering skin in shades of deep sapphire and soft aqua, accented by subtle silver streaks along her curved fins and rounded tail which shimmers softly. Her large, expressive teal eyes flecked with silver gaze out with a friendly, cheerful smile that radiates kindness and wonder, maintaining her signature gentle, inquisitive expression and playful splash trail trailing gracefully behind her. Luma is centered prominently in a serene underwater scene bathed in soft watercolor textures and painterly strokes, suffused with shimmering light rays filtering through the gentle ocean glow above, creating a tender, magical ambiance befitting the story's closing moment \"The End.\" The environment is a calm, clear oceanic expanse with hints of delicate coral and dappled sandy seabed below, subtly framing Luma without detracting attention. Secondary characters—small, joyful sea creatures like curious colorful fish and a friendly sea turtle—interact nearby, their varied expressions and dynamic poses reflecting discovery, friendship, and care, complementing Luma's presence while keeping her the visual and narrative focal point. The composition employs a moderate depth of field to softly blur distant backgrounds, enhancing the intimate focus on Luma and her companions. Natural lighting is diffused and warm, enhancing the watercolor medium's soft textures and the scene’s emotional warmth, inviting young readers to reflect on curiosity, kindness, and environmental harmony through this peaceful final illustration."
+          }
+        }
+      }
+    ],
+    "Structure Story into Pages": [
+      {
+        "json": {
+          "success": true,
+          "story_data": {
+            "narrative": "Luma, a curious gentle whale, finds a drifting plastic bottle in her beautiful ocean home and is confused about its origin. She embarks on a journey to learn about it, encountering various sea creatures and overcoming obstacles. Through her explorations and by showing kindness and respect for her surroundings, Luma not only discovers new friends, but she also solves the mystery of the drifting bottle and inspires a collective effort to keep the ocean clean.",
+            "pages": [
+              {
+                "page_number": 0,
+                "text": "Luma the Gentle Whale",
+                "is_title_page": true,
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow",
+                "scene_description": "Professional children's book cover featuring Luma the Gentle Whale in their authentic story world. The scene represents the Curiosity, Friendship, and Exploring the Ocean Responsibly theme with rich environmental details that capture the essence of this unique narrative."
+              },
+              {
+                "page_number": 1,
+                "text": "In the deep blue ocean, Luma the Gentle Whale swam happily.",
+                "scene_description": "Image of Luma, a gentle whale, swimming amongst the vibrant coral reefs with light rays shimmering from the surface.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 2,
+                "text": "One day, Luma found a strange object, a plastic bottle, drifting in her home.",
+                "scene_description": "Luma curiously analyzing a drifting plastic bottle with her large, innocent eyes.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 3,
+                "text": "She had never seen anything like it, and she found it odd while exploring her environment.",
+                "scene_description": "Luma swimming around unfamiliar object, gentle ocean glow in the background.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 4,
+                "text": "Being a curious whale, Luma decided to find out where it came from.",
+                "scene_description": "Inquisitive Luma setting off towards the surface of the water.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 5,
+                "text": "Her journey took her up to the surface of the ocean, an area she rarely visited.",
+                "scene_description": "Luma reaching the ocean surface, with a soft watercolor sky filled with clouds.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 6,
+                "text": "It was a new experience, and it made her heart flutter with excitement and slight worry.",
+                "scene_description": "Luma looking around the surface, small boats in the distance from above water view.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 7,
+                "text": "She met Oscar the Seagull, who told her the plastic bottle came from humans.",
+                "scene_description": "Introduction of Oscar the Seagull standing on a bobbing buoy, talking to Luma.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 8,
+                "text": "Though Luma did not fully understand, she felt she needed to do something about it.",
+                "scene_description": "Luma looking determined, with Oscar flying overhead, light rays creating a halo effect.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 9,
+                "text": "Luma embarked on her journey, diving deeper into the sea, meeting more of its colorful inhabitants.",
+                "scene_description": "Luma diving, illuminated by ocean glow, with delighted sea creatures watching.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 10,
+                "text": "She met Tito the Turtle, who expressed concern about the dangerous plastic objects.",
+                "scene_description": "Tito the Turtle sharing his concerns with Luma while they swim around a sea anemone.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 11,
+                "text": "Luma realized how important it was to keep their home clean, and she felt empowered to make a change.",
+                "scene_description": "Luma, with a determined look, surrounded by a soft glow and the shimmering ocean.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 12,
+                "text": "She returned to the surface once more and told Oscar about her decision to clean up their environment.",
+                "scene_description": "Luma talking to Oscar the Seagull on the surface of the ocean, surrounded by gentle waves.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 13,
+                "text": "Sharing her concern, Oscar rallied other seagulls, while Luma recruited her ocean friends.",
+                "scene_description": "Sea creatures and seagulls coming together, Luma and Oscar leading the assembly.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 14,
+                "text": "Working together, they began collecting and removing the plastic objects from their home.",
+                "scene_description": "Busy scene of sea creatures and seagulls collecting plastic waste in cooperation.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 15,
+                "text": "With every object removed, their home started to look brighter and healthier.",
+                "scene_description": "Ocean scene slowly clearing up, with more vibrant colors and happier sea creatures.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 16,
+                "text": "Luma felt overwhelmed with happiness, noticing the positive impact they all made.",
+                "scene_description": "Luma with a glowing smile, friends surrounding her, amidst the cleaner, brighter sea.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 17,
+                "text": "Their shared experience brought them closer, and Luma realized that by exploring her world and solving its problems, she encountered new friends.",
+                "scene_description": "Emotional scene of Luma surrounded by all her new friends, everyone sharing a joyful moment.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 18,
+                "text": "From then on, Luma and her friends promised to always protect their ocean home, knowing that curiosity and respect for their environment led to beautiful friendships and a healthy, happy home.",
+                "scene_description": "Luma and friends looking towards the horizon beneath the sea with a radiant ocean glow illuminating their path.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              },
+              {
+                "page_number": 19,
+                "text": "The End",
+                "scene_description": "By exploring the world around us with curiosity and respect, we can discover new friends, solve problems, and care for our environment.",
+                "character_name": "Luma the Gentle Whale",
+                "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+                "age_range": "4-9",
+                "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow"
+              }
+            ],
+            "total_pages": 20,
+            "character_name": "Luma the Gentle Whale",
+            "theme": "Curiosity, Friendship, and Exploring the Ocean Responsibly",
+            "art_style": "Soft Watercolor with Shimmering Light Rays and Gentle Ocean Glow",
+            "age_range": "4-9",
+            "dynamic_title": "Luma the Gentle Whale"
+          }
+        }
+      }
+    ],
+    "Update row in sheet": [
+      {
+        "json": {
+          "STATUS": "SUCCESS",
+          "DRIVER_IMAGE_URL": "https://drive.google.com/file/d/1otd7T6xBb_KYKP0OwWO24hv0USj9xQB4/view?usp=drivesdk",
+          "IMAGE_URL": "https://v3b.fal.media/files/b/koala/9BTFxTuNjHNgSr4LCCwpD.jpg"
+        }
+      }
+    ],
+    "Upload file": [
+      {
+        "json": {
+          "kind": "drive#file",
+          "id": "1otd7T6xBb_KYKP0OwWO24hv0USj9xQB4",
+          "name": "9BTFxTuNjHNgSr4LCCwpD.jpg",
+          "mimeType": "image/jpeg",
+          "starred": false,
+          "trashed": false,
+          "explicitlyTrashed": false,
+          "parents": [
+            "1O1R0F6JvAslFjXdOD6f8Pp5psuYtn2FM"
+          ],
+          "spaces": [
+            "drive"
+          ],
+          "version": "2",
+          "webContentLink": "https://drive.google.com/uc?id=1otd7T6xBb_KYKP0OwWO24hv0USj9xQB4&export=download",
+          "webViewLink": "https://drive.google.com/file/d/1otd7T6xBb_KYKP0OwWO24hv0USj9xQB4/view?usp=drivesdk",
+          "iconLink": "https://drive-thirdparty.googleusercontent.com/16/type/image/jpeg",
+          "hasThumbnail": true,
+          "thumbnailLink": "https://lh3.googleusercontent.com/drive-storage/AJQWtBP3IQWp94kf5NhuFI7fOcbcM9ONzwb4oTlFOlrvMbpZzRI1hhONZcE9-fhlmo_nbAe9darFRVr1uZWscpUydeEw0yuJd2WY8bi3BAqnlmN_0n0=s220",
+          "thumbnailVersion": "2",
+          "viewedByMe": false,
+          "createdTime": "2025-10-19T06:58:21.137Z",
+          "modifiedTime": "2025-10-19T06:58:24.931Z",
+          "modifiedByMeTime": "2025-10-19T06:58:24.931Z",
+          "modifiedByMe": true,
+          "owners": [
+            {
+              "kind": "drive#user",
+              "displayName": "Aruna Kumara",
+              "photoLink": "https://lh3.googleusercontent.com/a/ACg8ocKuoarCk802b1_hUStVIpjGHWCAmPxPsdRaQFQoE7wvZuSJ0g=s64",
+              "me": true,
+              "permissionId": "07895928135417956471",
+              "emailAddress": "aws.arunak451@gmail.com"
+            }
+          ],
+          "lastModifyingUser": {
+            "kind": "drive#user",
+            "displayName": "Aruna Kumara",
+            "photoLink": "https://lh3.googleusercontent.com/a/ACg8ocKuoarCk802b1_hUStVIpjGHWCAmPxPsdRaQFQoE7wvZuSJ0g=s64",
+            "me": true,
+            "permissionId": "07895928135417956471",
+            "emailAddress": "aws.arunak451@gmail.com"
+          },
+          "shared": true,
+          "ownedByMe": true,
+          "downloadRestrictions": {
+            "itemDownloadRestriction": {
+              "restrictedForReaders": false,
+              "restrictedForWriters": false
+            },
+            "effectiveDownloadRestrictionWithContext": {
+              "restrictedForReaders": false,
+              "restrictedForWriters": false
+            }
+          },
+          "capabilities": {
+            "canAcceptOwnership": false,
+            "canAddChildren": false,
+            "canAddMyDriveParent": false,
+            "canChangeCopyRequiresWriterPermission": true,
+            "canChangeItemDownloadRestriction": true,
+            "canChangeSecurityUpdateEnabled": false,
+            "canChangeViewersCanCopyContent": true,
+            "canComment": true,
+            "canCopy": true,
+            "canDelete": true,
+            "canDisableInheritedPermissions": false,
+            "canDownload": true,
+            "canEdit": true,
+            "canEnableInheritedPermissions": true,
+            "canListChildren": false,
+            "canModifyContent": true,
+            "canModifyContentRestriction": true,
+            "canModifyEditorContentRestriction": true,
+            "canModifyOwnerContentRestriction": true,
+            "canModifyLabels": false,
+            "canMoveChildrenWithinDrive": false,
+            "canMoveItemIntoTeamDrive": true,
+            "canMoveItemOutOfDrive": true,
+            "canMoveItemWithinDrive": true,
+            "canReadLabels": false,
+            "canReadRevisions": true,
+            "canRemoveChildren": false,
+            "canRemoveContentRestriction": false,
+            "canRemoveMyDriveParent": true,
+            "canRename": true,
+            "canShare": true,
+            "canTrash": true,
+            "canUntrash": true
+          },
+          "viewersCanCopyContent": true,
+          "copyRequiresWriterPermission": false,
+          "writersCanShare": true,
+          "permissions": [
+            {
+              "kind": "drive#permission",
+              "id": "anyoneWithLink",
+              "type": "anyone",
+              "role": "writer",
+              "allowFileDiscovery": false
+            },
+            {
+              "kind": "drive#permission",
+              "id": "07895928135417956471",
+              "type": "user",
+              "emailAddress": "aws.arunak451@gmail.com",
+              "role": "owner",
+              "displayName": "aws.arunak451",
+              "deleted": false,
+              "pendingOwner": false
+            }
+          ],
+          "permissionIds": [
+            "anyoneWithLink",
+            "07895928135417956471"
+          ],
+          "originalFilename": "Untitled",
+          "fullFileExtension": "jpg",
+          "fileExtension": "jpg",
+          "md5Checksum": "c75489ddbeca77830e2984ebb138b9c5",
+          "sha1Checksum": "6fc1b844cddef4bae0a45a482aadd7afc5e193f8",
+          "sha256Checksum": "3c0381a7c4eab55f56010c80f76d5bb9f78a8d399233a7aa3a3865c633d751eb",
+          "size": "234545",
+          "quotaBytesUsed": "234545",
+          "headRevisionId": "0B9FqTzg3rmctT0RXaFp3ZEVpRnFUejREUXNERnFZajY4dG13PQ",
+          "imageMediaMetadata": {
+            "width": 1024,
+            "height": 768,
+            "rotation": 0
+          },
+          "isAppAuthorized": true,
+          "linkShareMetadata": {
+            "securityUpdateEligible": false,
+            "securityUpdateEnabled": true
+          },
+          "inheritedPermissionsDisabled": false
+        }
+      }
+    ],
+    "Split Out": [
+      {
+        "json": {
+          "IMAGE_URL": "https://v3b.fal.media/files/b/koala/9BTFxTuNjHNgSr4LCCwpD.jpg"
+        }
+      }
+    ],
+    "VIDEO_STATUS_API": [
+      {
+        "json": {
+          "success": true,
+          "message": "Video status retrieved successfully",
+          "filename": "luma_the_gentle_whale_video.mp4",
+          "file_path": "output/luma_the_gentle_whale_video.mp4",
+          "exists": true,
+          "file_size": 13539657,
+          "duration_seconds": 150.32999999999998,
+          "download_url": "/pdf/video/download/luma_the_gentle_whale_video.mp4"
+        }
+      }
+    ],
+    "VIDEO_GENERATION_API": [
+      {
+        "json": {
+          "success": true,
+          "message": "Video generated successfully",
+          "filename": "luma_the_gentle_whale_video.mp4",
+          "file_path": "output/luma_the_gentle_whale_video.mp4",
+          "download_url": "/pdf/video/download/luma_the_gentle_whale_video.mp4",
+          "duration_seconds": 150.31
+        }
+      }
+    ],
+    "GENERATE_YOUTUBE_PDF": [
+      {
+        "json": {
+          "success": true,
+          "message": "KDP storybook PDF generated successfully",
+          "filename": "luma_the_gentle_whale.pdf",
+          "file_path": "output/luma_the_gentle_whale.pdf",
+          "download_url": "/pdf/download/luma_the_gentle_whale.pdf"
+        }
+      }
+    ],
+    "KDP_PDF_GENERATOR": [
+      {
+        "json": {
+          "success": true,
+          "message": "KDP storybook PDF generated successfully",
+          "filename": "luma_the_gentle_whale.pdf",
+          "file_path": "output/luma_the_gentle_whale.pdf",
+          "download_url": "/pdf/download/luma_the_gentle_whale.pdf"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Story Parameters": {
+      "main": [
+        [
+          {
+            "node": "Generate Story",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Story": {
+      "main": [
+        [
+          {
+            "node": "Structure Story into Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Story into Pages": {
+      "main": [
+        [
+          {
+            "node": "Split Pages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Pages": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Scene Response": {
+      "main": [
+        [
+          {
+            "node": "Generate Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Images": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Generated Images": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Scene Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "GENERATE_YOUTUBE_PDF",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "KDP_PDF_GENERATOR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Fetch Generated Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "VIDEO_GENERATION_JSON_TRANSFORMER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "VIDEO_STATUS_API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "DOWNLOAD_YOUTUBE_VIDEO",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VIDEO_STATUS_API": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VIDEO_GENERATION_API": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VIDEO_GENERATION_JSON_TRANSFORMER": {
+      "main": [
+        [
+          {
+            "node": "VIDEO_GENERATION_API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GENERATE_YOUTUBE_PDF": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "KDP_PDF_GENERATOR": {
+      "main": [
+        [
+          {
+            "node": "DOWNLOAD_STORY_BOOK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3d59fc8f-41ec-48f3-b784-46db99f82631",
+  "meta": {
+    "instanceId": "06e98ce9db23ff760b007eaefb3738ba91dce3528c57a63321e6eac113e705a1"
+  },
+  "id": "DjyvS8zpEVsSFQ4m",
+  "tags": []
+}
